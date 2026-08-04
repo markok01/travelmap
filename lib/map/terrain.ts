@@ -134,8 +134,9 @@ function punchVisitColor(hex: string): string {
     hsl.h = Math.max(175, hsl.h + 45);
   }
 
-  hsl.s = Math.min(0.92, Math.max(0.55, hsl.s * 1.55 + 0.12));
-  hsl.l = Math.min(0.62, Math.max(0.45, hsl.l * 0.75 + 0.22));
+  // Stronger presence so visited countries read larger/clearer than pins
+  hsl.s = Math.min(0.94, Math.max(0.6, hsl.s * 1.65 + 0.14));
+  hsl.l = Math.min(0.58, Math.max(0.42, hsl.l * 0.72 + 0.2));
 
   return hslToHex(hsl);
 }

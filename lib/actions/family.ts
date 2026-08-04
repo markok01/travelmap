@@ -98,6 +98,48 @@ export async function createFamilyAction(
   redirect("/dashboard");
 }
 
+export async function updateFamilyNameAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const session = await getSession();
+  if (!session?.user) {
+    return { error: "You must be signed in." };
+  }
+
+  const family = await getFamilyForUser(session.user.id);
+  if (!family) {
+    return { error: "Create a family first." };
+  }
+
+  const ownership = family.members.find(
+    (m) => m.userId === session.user.id && m.role === "owner",
+  );
+  if (!ownership) {
+    return { error: "Only the family owner can rename the family." };
+  }
+
+  const name = String(formData.get("familyName") ?? "").trim();
+  if (!name) {
+    return { error: "Family name is required." };
+  }
+  if (name.length > 255) {
+    return { error: "Family name is too long." };
+  }
+
+  if (name === family.name) {
+    return { success: true };
+  }
+
+  await db
+    .update(families)
+    .set({ name })
+    .where(eq(families.id, family.id));
+
+  revalidateFamilyPaths();
+  return { success: true };
+}
+
 export async function addFamilyMemberAction(
   _prev: ActionState,
   formData: FormData,

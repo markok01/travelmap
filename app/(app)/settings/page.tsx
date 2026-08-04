@@ -1,6 +1,7 @@
 import { AppearanceSettings } from "@/components/appearance-settings";
 import { ChangePasswordForm } from "@/components/change-password-form";
 import { FamilyMembersPanel } from "@/components/family-members-panel";
+import { FamilyNameSettings } from "@/components/family-name-settings";
 import { ShareSettings } from "@/components/share-settings";
 import { WishlistPanel } from "@/components/wishlist-panel";
 import { getFamilyForUser } from "@/lib/actions/family";
@@ -51,17 +52,11 @@ export default async function SettingsPage() {
 
       <ShareSettings share={share ?? null} isOwner={isOwner} />
 
-      <section className="settings-panel space-y-1">
-        <h2 className="settings-section-label text-sm font-medium uppercase tracking-[0.14em] text-[var(--muted-foreground)]">
-          Family
-        </h2>
-        <p className="text-xl font-semibold tracking-tight">
-          {family.name}
-        </p>
-        <p className="text-sm text-[var(--muted-foreground)]">
-          Signed in as {session.user.email}
-        </p>
-      </section>
+      <FamilyNameSettings
+        name={family.name}
+        email={session.user.email}
+        canEdit={isOwner}
+      />
 
       {isOwner ? (
         <FamilyMembersPanel members={members} />

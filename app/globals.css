@@ -683,4 +683,47 @@ html[data-design="minimal"] .mobile-menu-panel {
   .mobile-menu-panel {
     transform: translate3d(100%, 0, 0);
   }
+
+  .map-city-pin {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ── Map city pins (hover-reveal) ───────────────────────────────── */
+.map-city-pin {
+  opacity: 0;
+  transform: scale(0.35);
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: map-pin-in 0.42s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation-delay: var(--pin-delay, 0ms);
+  will-change: opacity, transform;
+}
+
+.map-city-pin-dot {
+  filter: drop-shadow(0 0.5px 1px rgba(0, 0, 0, 0.25));
+}
+
+.map-country-visited {
+  transition:
+    fill 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+    stroke-width 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes map-pin-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.35) translateY(2px);
+  }
+  70% {
+    opacity: 1;
+    transform: scale(1.08) translateY(0);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }

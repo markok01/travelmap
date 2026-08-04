@@ -108,11 +108,34 @@ export function GlobeCanvas({
   const [loading, setLoading] = useState(true);
   const [webgl, setWebgl] = useState(true);
   const [textureOk, setTextureOk] = useState(true);
+  const [hoveredCode, setHoveredCode] = useState<string | null>(null);
+  const hoverClearRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const palette = TERRAIN[theme];
   const isSatellite = mapStyle === "satellite";
   const isMinimal = design === "minimal";
   const useTexture = isSatellite && textureOk;
+
+  function revealCountry(code: string | null) {
+    if (hoverClearRef.current) {
+      clearTimeout(hoverClearRef.current);
+      hoverClearRef.current = null;
+    }
+    if (code) {
+      setHoveredCode(code);
+      return;
+    }
+    hoverClearRef.current = setTimeout(() => {
+      setHoveredCode(null);
+      hoverClearRef.current = null;
+    }, 160);
+  }
+
+  useEffect(() => {
+    return () => {
+      if (hoverClearRef.current) clearTimeout(hoverClearRef.current);
+    };
+  }, []);
 
   const countryMeta = useMemo(
     () => new Map(countries.map((c) => [c.code, c])),
@@ -271,16 +294,19 @@ export function GlobeCanvas({
     );
   }, [focusPoint]);
 
-  const globePins = useMemo<GlobePin[]>(
-    () =>
-      pins.map((pin) => ({
+  const revealCode = hoveredCode || focusCode;
+
+  const globePins = useMemo<GlobePin[]>(() => {
+    if (!revealCode) return [];
+    return pins
+      .filter((pin) => pin.countryCode === revealCode)
+      .map((pin) => ({
         ...pin,
         lat: pin.latitude,
         lng: pin.longitude,
-        size: 0.35,
-      })),
-    [pins],
-  );
+        size: 0.12,
+      }));
+  }, [pins, revealCode]);
 
   function resetCamera() {
     globeRef.current?.pointOfView({ lat: 20, lng: 10, altitude: 2.2 }, 900);
@@ -380,13 +406,13 @@ export function GlobeCanvas({
         polygonStrokeColor={(d) => {
           const feat = d as CountryFeature;
           const code = feat.properties.code;
-          if (code && code === focusCode) {
+          if (code && (code === focusCode || code === hoveredCode)) {
             return palette.borderFocus;
           }
           if (isSatellite && code && (fills[code] || wishlist.has(code))) {
             return theme === "light"
-              ? "rgba(255,255,255,0.85)"
-              : "rgba(255,230,150,0.8)";
+              ? "rgba(255,255,255,0.9)"
+              : "rgba(255,230,150,0.85)";
           }
           if (isSatellite) {
             return theme === "light"
@@ -398,13 +424,26 @@ export function GlobeCanvas({
         polygonAltitude={(d) => {
           const feat = d as CountryFeature;
           const code = feat.properties.code;
-          if (code && focusCode === code) return isSatellite ? 0.028 : 0.014;
+          const hovered = Boolean(code && hoveredCode === code && fills[code]);
+          if (code && focusCode === code) return isSatellite ? 0.034 : 0.018;
+          if (hovered) return isSatellite ? 0.032 : 0.016;
           if (code && (fills[code] || wishlist.has(code))) {
-            return isSatellite ? 0.018 : 0.008;
+            // Visited countries sit higher so they read as the primary mark
+            return isSatellite ? 0.024 : 0.012;
           }
           return isSatellite ? 0.002 : 0.004;
         }}
-        polygonsTransitionDuration={200}
+        polygonsTransitionDuration={380}
+        onPolygonHover={(poly) => {
+          if (!poly) {
+            revealCountry(null);
+            return;
+          }
+          const feat = poly as CountryFeature;
+          const code = feat?.properties?.code;
+          if (code && fills[code]) revealCountry(code);
+          else revealCountry(null);
+        }}
         polygonLabel={(d) => {
           const feat = d as CountryFeature;
           const code = feat.properties.code;
@@ -412,6 +451,9 @@ export function GlobeCanvas({
           const name = meta?.name ?? feat.properties.name;
           const flag = meta?.flagEmoji ?? "";
           const visitors = code ? visitMap.visitorsByCountry[code] ?? [] : [];
+          const countryPins = code
+            ? pins.filter((p) => p.countryCode === code)
+            : [];
           const visitorHtml = visitors.length
             ? visitors
                 .map(
@@ -420,10 +462,17 @@ export function GlobeCanvas({
                 )
                 .join("")
             : `<div style="margin-top:4px;font-size:12px;opacity:.7">Not visited yet</div>`;
+          const placesHtml = countryPins.length
+            ? `<div style="margin-top:6px;font-size:11px;opacity:.75">${countryPins
+                .slice(0, 4)
+                .map((p) => escapeHtml(p.name))
+                .join(" · ")}${countryPins.length > 4 ? "…" : ""}</div>`
+            : "";
 
           return `<div style="font-family:sans-serif;padding:2px 0">
             <div style="font-weight:600">${flag} ${escapeHtml(name)}${code ? ` · ${escapeHtml(code)}` : ""}</div>
             ${visitorHtml}
+            ${placesHtml}
           </div>`;
         }}
         onPolygonClick={(poly) => {
@@ -435,8 +484,9 @@ export function GlobeCanvas({
         pointsData={globePins}
         pointLat="lat"
         pointLng="lng"
-        pointAltitude={0.01}
+        pointAltitude={0.012}
         pointRadius="size"
+        pointsTransitionDuration={450}
         pointColor={(d) =>
           mapPinColor((d as GlobePin).color, theme, design)
         }
@@ -444,8 +494,12 @@ export function GlobeCanvas({
           const pin = d as GlobePin;
           return `<div style="font-family:sans-serif;padding:2px 0">
             <div style="font-weight:600">${escapeHtml(pin.name)}</div>
-            <div style="font-size:12px;opacity:.75;margin-top:2px">${escapeHtml(pin.tripTitle?.trim() || "Trip")} · ${escapeHtml(pin.tripStartDate.slice(0, 4))}</div>
+            <div style="font-size:12px;opacity:.75;margin-top:2px">${escapeHtml(pin.tripTitle?.trim() || "Trip")} · ${escapeHtml(pin.tripStartDate.slice(0, 4))}${pin.visitCount > 1 ? ` · ${pin.visitCount} visits` : ""}</div>
           </div>`;
+        }}
+        onPointHover={(d) => {
+          if (d) revealCountry((d as GlobePin).countryCode);
+          else revealCountry(null);
         }}
         onPointClick={(d) => {
           onPinClick?.(d as GlobePin);

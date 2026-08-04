@@ -58,6 +58,10 @@ export function MapDetailPanel({
     const name = sample?.countryName ?? country?.name ?? selection.code;
     const onWishlist = wishlistCodes.includes(selection.code);
 
+    const countryPins = pins
+      .filter((pin) => pin.countryCode === selection.code)
+      .sort((a, b) => b.visitCount - a.visitCount || a.name.localeCompare(b.name));
+
     return (
       <aside className="map-panel--sheet fixed inset-x-0 bottom-0 z-40 flex max-h-[45vh] flex-col overflow-hidden rounded-t-[var(--radius-xl)] border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow-md)] md:static md:max-h-none md:w-80 md:shrink-0 md:rounded-[var(--radius-xl)]">
         <header className="flex items-start justify-between gap-3 border-b border-[var(--border)] px-4 py-3">
@@ -70,6 +74,9 @@ export function MapDetailPanel({
             </h2>
             <p className="text-sm text-[var(--muted-foreground)]">
               {countryTrips.length} trip{countryTrips.length === 1 ? "" : "s"}
+              {countryPins.length
+                ? ` · ${countryPins.length} place${countryPins.length === 1 ? "" : "s"}`
+                : ""}
             </p>
           </div>
           <button
@@ -82,42 +89,77 @@ export function MapDetailPanel({
           </button>
         </header>
 
-        <div className="flex-1 space-y-3 overflow-y-auto p-4">
+        <div className="flex-1 space-y-4 overflow-y-auto p-4">
+          {countryPins.length > 0 ? (
+            <div>
+              <p className="mb-2 text-xs uppercase tracking-[0.12em] text-[var(--muted-foreground)]">
+                Cities & places
+              </p>
+              <ul className="space-y-1">
+                {countryPins.map((pin) => (
+                  <li key={pin.id}>
+                    <button
+                      type="button"
+                      onClick={() => onFocusPlace(pin)}
+                      className="flex w-full items-center gap-2 rounded-[var(--radius-md)] px-2 py-2 text-left text-sm transition hover:bg-[var(--muted)]"
+                    >
+                      <span
+                        className="h-2.5 w-2.5 shrink-0 rounded-full"
+                        style={{ backgroundColor: pin.color }}
+                      />
+                      <span className="min-w-0 flex-1 truncate">{pin.name}</span>
+                      <span className="shrink-0 text-[11px] text-[var(--muted-foreground)]">
+                        {pin.visitCount}×
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
           {countryTrips.length === 0 ? (
             <p className="text-sm text-[var(--muted-foreground)]">
               No trips logged here yet.
             </p>
           ) : (
-            countryTrips.map((trip) => (
-              <button
-                key={trip.id}
-                type="button"
-                onClick={() => onSelectTrip(trip.id)}
-                className="w-full rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--background)] p-3 text-left transition hover:border-[var(--accent)]"
-              >
-                <p className="font-medium">{tripLabel(trip)}</p>
-                <p className="mt-0.5 text-xs text-[var(--muted-foreground)]">
-                  {yearOf(trip.startDate)}
-                  {trip.places.length
-                    ? ` · ${trip.places.map((p) => p.name).join(", ")}`
-                    : ""}
-                </p>
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {trip.participants.map((p) => (
-                    <span
-                      key={p.id}
-                      className="inline-flex items-center gap-1.5 text-[11px] text-[var(--muted-foreground)]"
-                    >
-                      <span
-                        className="h-2 w-2 rounded-full"
-                        style={{ backgroundColor: p.color }}
-                      />
-                      {p.displayName}
-                    </span>
-                  ))}
-                </div>
-              </button>
-            ))
+            <div>
+              <p className="mb-2 text-xs uppercase tracking-[0.12em] text-[var(--muted-foreground)]">
+                Trips
+              </p>
+              <div className="space-y-3">
+                {countryTrips.map((trip) => (
+                  <button
+                    key={trip.id}
+                    type="button"
+                    onClick={() => onSelectTrip(trip.id)}
+                    className="w-full rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--background)] p-3 text-left transition hover:border-[var(--accent)]"
+                  >
+                    <p className="font-medium">{tripLabel(trip)}</p>
+                    <p className="mt-0.5 text-xs text-[var(--muted-foreground)]">
+                      {yearOf(trip.startDate)}
+                      {trip.places.length
+                        ? ` · ${trip.places.map((p) => p.name).join(", ")}`
+                        : ""}
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {trip.participants.map((p) => (
+                        <span
+                          key={p.id}
+                          className="inline-flex items-center gap-1.5 text-[11px] text-[var(--muted-foreground)]"
+                        >
+                          <span
+                            className="h-2 w-2 rounded-full"
+                            style={{ backgroundColor: p.color }}
+                          />
+                          {p.displayName}
+                        </span>
+                      ))}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
         </div>
 
@@ -129,7 +171,16 @@ export function MapDetailPanel({
   const trip = trips.find((t) => t.id === selection.tripId);
   if (!trip) return null;
 
-  const placePins = pins.filter((p) => p.tripId === trip.id);
+  const tripPlacePins = trip.places
+    .map((place) => {
+      const code = place.countryCode ?? trip.countryCode;
+      return pins.find(
+        (pin) =>
+          pin.countryCode === code &&
+          pin.name.toLowerCase() === place.name.trim().toLowerCase(),
+      );
+    })
+    .filter(Boolean) as MapPin[];
   const highlightPlaceId = selection.placeId;
 
   return (
@@ -176,13 +227,13 @@ export function MapDetailPanel({
           <p className="text-sm text-[var(--muted-foreground)]">{trip.notes}</p>
         ) : null}
 
-        {placePins.length > 0 ? (
+        {tripPlacePins.length > 0 ? (
           <div>
             <p className="mb-2 text-xs uppercase tracking-[0.12em] text-[var(--muted-foreground)]">
               Places
             </p>
             <ul className="space-y-1">
-              {placePins.map((pin) => (
+              {tripPlacePins.map((pin) => (
                 <li key={pin.id}>
                   <button
                     type="button"
@@ -198,6 +249,11 @@ export function MapDetailPanel({
                       style={{ backgroundColor: pin.color }}
                     />
                     <span className="min-w-0 flex-1 truncate">{pin.name}</span>
+                    {pin.visitCount > 1 ? (
+                      <span className="rounded-full bg-[var(--muted)] px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-[var(--muted-foreground)]">
+                        {pin.visitCount}×
+                      </span>
+                    ) : null}
                     <span className="text-[11px] capitalize text-[var(--muted-foreground)]">
                       {pin.type}
                     </span>

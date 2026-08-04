@@ -41,12 +41,14 @@ function StatCard({
 function BarList({
   items,
   emptyLabel,
+  countSuffix,
 }: {
   items: { label: string; count: number }[];
   emptyLabel: string;
+  countSuffix?: string;
 }) {
   const max = Math.max(1, ...items.map((i) => i.count));
-  if (items.every((i) => i.count === 0)) {
+  if (items.length === 0 || items.every((i) => i.count === 0)) {
     return (
       <p className="text-sm text-[var(--muted-foreground)]">{emptyLabel}</p>
     );
@@ -56,9 +58,12 @@ function BarList({
     <ul className="space-y-2">
       {items.map((item) => (
         <li key={item.label} className="space-y-1">
-          <div className="flex items-center justify-between text-sm">
-            <span>{item.label}</span>
-            <span className="text-[var(--muted-foreground)]">{item.count}</span>
+          <div className="flex items-center justify-between gap-3 text-sm">
+            <span className="min-w-0 truncate">{item.label}</span>
+            <span className="shrink-0 text-[var(--muted-foreground)]">
+              {item.count}
+              {countSuffix ? ` ${countSuffix}` : ""}
+            </span>
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-[var(--muted)]">
             <div
@@ -86,7 +91,7 @@ function Highlights({ stats }: { stats: FamilyStats }) {
         </p>
         {stats.topCountry ? (
           <p className="text-sm text-[var(--muted-foreground)]">
-            {stats.topCountry.count} trip
+            {stats.topCountry.count} visit
             {stats.topCountry.count === 1 ? "" : "s"}
           </p>
         ) : null}
@@ -100,7 +105,7 @@ function Highlights({ stats }: { stats: FamilyStats }) {
         </p>
         {stats.topCity ? (
           <p className="text-sm text-[var(--muted-foreground)]">
-            {stats.topCity.count} mention
+            {stats.topCity.count} visit
             {stats.topCity.count === 1 ? "" : "s"}
           </p>
         ) : null}
@@ -351,6 +356,41 @@ export function StatsExplorer({
               Highlights
             </h2>
             <Highlights stats={stats} />
+          </section>
+
+          <section className="grid gap-6 lg:grid-cols-2">
+            <div className="space-y-3 rounded-3xl border border-[var(--border)] bg-[var(--background)] p-5">
+              <h2 className="text-sm font-medium uppercase tracking-[0.14em] text-[var(--muted-foreground)]">
+                Country visits
+              </h2>
+              <p className="text-xs text-[var(--muted-foreground)]">
+                How many trips touched each country (repeats count).
+              </p>
+              <BarList
+                items={stats.countryVisits.map((row) => ({
+                  label: `${row.meta ? `${row.meta} ` : ""}${row.label}`,
+                  count: row.count,
+                }))}
+                emptyLabel="No countries in this scope."
+                countSuffix="visits"
+              />
+            </div>
+            <div className="space-y-3 rounded-3xl border border-[var(--border)] bg-[var(--background)] p-5">
+              <h2 className="text-sm font-medium uppercase tracking-[0.14em] text-[var(--muted-foreground)]">
+                City visits
+              </h2>
+              <p className="text-xs text-[var(--muted-foreground)]">
+                Cities logged on trips — multiple trips to the same city stack.
+              </p>
+              <BarList
+                items={stats.cityVisits.map((row) => ({
+                  label: row.label,
+                  count: row.count,
+                }))}
+                emptyLabel="No cities logged yet."
+                countSuffix="visits"
+              />
+            </div>
           </section>
 
           <section className="grid gap-6 lg:grid-cols-2">

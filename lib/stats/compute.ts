@@ -66,6 +66,10 @@ export type FamilyStats = {
   averageTripDays: number | null;
   averageTripsPerYear: number | null;
   countriesByContinent: { continent: Continent; count: number }[];
+  /** Countries ranked by number of trips (multi visits included). */
+  countryVisits: NamedCount[];
+  /** Cities ranked by number of trip mentions. */
+  cityVisits: NamedCount[];
   topCountry: NamedCount | null;
   topCity: NamedCount | null;
   topContinent: NamedCount | null;
@@ -178,6 +182,24 @@ function topFromCounts(
     }
   }
   return best;
+}
+
+function sortedFromCounts(
+  counts: Map<string, { label: string; count: number; meta?: string | null }>,
+): NamedCount[] {
+  return [...counts.entries()]
+    .map(([key, value]) => ({
+      key,
+      label: value.label,
+      count: value.count,
+      meta: value.meta ?? null,
+    }))
+    .sort(
+      (a, b) =>
+        b.count - a.count || a.label.localeCompare(b.label, undefined, {
+          sensitivity: "base",
+        }),
+    );
 }
 
 export function computeStats(
@@ -304,6 +326,8 @@ export function computeStats(
     averageTripDays,
     averageTripsPerYear,
     countriesByContinent,
+    countryVisits: sortedFromCounts(countryVisitCounts),
+    cityVisits: sortedFromCounts(cityCounts),
     topCountry: topFromCounts(countryVisitCounts),
     topCity: topFromCounts(cityCounts),
     topContinent: topFromCounts(continentTripCounts),

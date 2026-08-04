@@ -452,7 +452,7 @@ export function MapExplorer({
           <span className="absolute h-2.5 w-2.5 rounded-full bg-[var(--foreground)]/20" />
           <span className="h-1.5 w-1.5 rounded-full bg-[var(--accent)]" />
         </span>
-        Place pin
+        Place (hover country)
       </span>
       {visitMap.members.map((m) => (
         <span key={m.id} className="inline-flex items-center gap-2">

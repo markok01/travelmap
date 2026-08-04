@@ -13,6 +13,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type PointerEvent as ReactPointerEvent,
   type WheelEvent as ReactWheelEvent,
 } from "react";
@@ -110,6 +111,8 @@ export function WorldMapCanvas({
   const [viewport, setViewport] = useState({ width: 960, height: 480 });
   const [transform, setTransform] = useState({ x: 0, y: 0, k: 1 });
   const [tooltip, setTooltip] = useState<TooltipState>(null);
+  const [hoveredCode, setHoveredCode] = useState<string | null>(null);
+  const hoverClearRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dragRef = useRef<{
     pointerId: number;
     startX: number;
@@ -124,6 +127,27 @@ export function WorldMapCanvas({
 
   const palette = TERRAIN[theme];
   const isSatellite = mapStyle === "satellite";
+
+  function revealCountry(code: string | null) {
+    if (hoverClearRef.current) {
+      clearTimeout(hoverClearRef.current);
+      hoverClearRef.current = null;
+    }
+    if (code) {
+      setHoveredCode(code);
+      return;
+    }
+    hoverClearRef.current = setTimeout(() => {
+      setHoveredCode(null);
+      hoverClearRef.current = null;
+    }, 140);
+  }
+
+  useEffect(() => {
+    return () => {
+      if (hoverClearRef.current) clearTimeout(hoverClearRef.current);
+    };
+  }, []);
 
   const countryMeta = useMemo(() => {
     return new Map(countries.map((c) => [c.code, c]));
@@ -262,6 +286,12 @@ export function WorldMapCanvas({
       })
       .filter(Boolean) as { pin: MapPin; x: number; y: number }[];
   }, [pins, projection]);
+
+  const revealCode = hoveredCode || focusCode;
+  const visiblePins = useMemo(() => {
+    if (!revealCode) return [];
+    return projectedPins.filter((p) => p.pin.countryCode === revealCode);
+  }, [projectedPins, revealCode]);
 
   function resetView() {
     setTransform({ x: 0, y: 0, k: 1 });
@@ -456,27 +486,30 @@ export function WorldMapCanvas({
                 ? wishlistFill
                 : landFill;
             const highlighted = Boolean(code && focusCode === code);
+            const isHovered = Boolean(code && hoveredCode === code && visited);
             const meta = code ? countryMeta.get(code) : undefined;
             const name = meta?.name ?? geo.properties.name ?? "Unknown";
-            const stroke = highlighted
+            const stroke = highlighted || isHovered
               ? borderFocus
               : (visited || wishlisted) && isSatellite
                 ? isMinimal
                   ? theme === "dark"
-                    ? "rgba(255,255,255,0.35)"
-                    : "rgba(255,255,255,0.55)"
+                    ? "rgba(255,255,255,0.45)"
+                    : "rgba(255,255,255,0.7)"
                   : theme === "dark"
-                    ? "rgba(255,240,180,0.75)"
-                    : "rgba(255,255,255,0.85)"
+                    ? "rgba(255,240,180,0.85)"
+                    : "rgba(255,255,255,0.95)"
                 : isMinimal
                   ? theme === "dark"
                     ? "rgba(255,255,255,0.12)"
                     : "rgba(0,0,0,0.08)"
                   : border;
-            const strokeW = highlighted
-              ? 1.35 / transform.k
-              : (visited || wishlisted) && isSatellite
-                ? 0.55 / transform.k
+            const strokeW = highlighted || isHovered
+              ? (isHovered ? 1.7 : 1.35) / transform.k
+              : visited
+                ? (isSatellite ? 0.75 : 0.55) / transform.k
+                : wishlisted && isSatellite
+                  ? 0.55 / transform.k
                 : (isMinimal ? 0.2 : isSatellite ? 0.22 : 0.35) / transform.k;
 
             return (
@@ -491,8 +524,13 @@ export function WorldMapCanvas({
                     ? "url(#land-shade)"
                     : undefined
                 }
-                className="transition-[fill,opacity,stroke] duration-200 ease-out hover:opacity-90"
-                style={{ cursor: code ? "pointer" : "default" }}
+                className={`map-country-path transition-[fill,opacity,stroke-width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                  visited ? "map-country-visited" : ""
+                } ${isHovered ? "map-country-hovered" : ""}`}
+                style={{
+                  cursor: code ? "pointer" : "default",
+                  opacity: visited ? (isHovered ? 1 : 0.96) : 1,
+                }}
                 onMouseEnter={(ev) => {
                   const svg = svgRef.current;
                   if (!svg) return;
@@ -504,6 +542,7 @@ export function WorldMapCanvas({
                     code,
                     name,
                   });
+                  if (visited && code) revealCountry(code);
                 }}
                 onMouseMove={(ev) => {
                   const svg = svgRef.current;
@@ -517,7 +556,10 @@ export function WorldMapCanvas({
                     name,
                   });
                 }}
-                onMouseLeave={() => setTooltip(null)}
+                onMouseLeave={() => {
+                  setTooltip(null);
+                  if (visited) revealCountry(null);
+                }}
                 onClick={() => {
                   if (dragRef.current?.moved) return;
                   if (!code) return;
@@ -528,15 +570,17 @@ export function WorldMapCanvas({
             );
           })}
 
-          {projectedPins.map(({ pin, x, y }) => {
+          {visiblePins.map(({ pin, x, y }, pinIndex) => {
             const fill = mapPinColor(pin.color, theme, design);
-            const r = Math.max(3.5, 5.5 / Math.sqrt(transform.k));
+            // Tiny city dots — scale gently with zoom so they stay precise
+            const r = Math.max(1.6, 2.15 / Math.sqrt(Math.max(transform.k, 1)));
             return (
               <g
                 key={pin.id}
                 transform={`translate(${x}, ${y})`}
                 style={{ cursor: "pointer" }}
                 onMouseEnter={(ev) => {
+                  revealCountry(pin.countryCode);
                   const svg = svgRef.current;
                   if (!svg) return;
                   const bounds = svg.getBoundingClientRect();
@@ -558,18 +602,41 @@ export function WorldMapCanvas({
                     pin,
                   });
                 }}
-                onMouseLeave={() => setTooltip(null)}
+                onMouseLeave={() => {
+                  setTooltip(null);
+                  revealCountry(null);
+                }}
                 onClick={(ev) => {
                   ev.stopPropagation();
                   if (dragRef.current?.moved) return;
                   onPinClick?.(pin);
                 }}
               >
-                <circle
-                  r={r + 1.2 / transform.k}
-                  fill={theme === "dark" ? "rgba(0,0,0,0.35)" : "rgba(255,255,255,0.85)"}
-                />
-                <circle r={r} fill={fill} stroke="rgba(255,255,255,0.9)" strokeWidth={1 / transform.k} />
+                <g
+                  className="map-city-pin"
+                  style={
+                    {
+                      "--pin-delay": `${Math.min(pinIndex, 8) * 45}ms`,
+                    } as CSSProperties
+                  }
+                >
+                  <circle
+                    className="map-city-pin-halo"
+                    r={r + 1.4 / Math.max(transform.k, 1)}
+                    fill={
+                      theme === "dark"
+                        ? "rgba(0,0,0,0.45)"
+                        : "rgba(255,255,255,0.92)"
+                    }
+                  />
+                  <circle
+                    className="map-city-pin-dot"
+                    r={r}
+                    fill={fill}
+                    stroke="rgba(255,255,255,0.95)"
+                    strokeWidth={0.7 / Math.max(transform.k, 1)}
+                  />
+                </g>
               </g>
             );
           })}
@@ -593,6 +660,9 @@ export function WorldMapCanvas({
               <p className="mt-0.5 text-xs text-[var(--muted-foreground)]">
                 {tooltip.pin.tripTitle?.trim() || "Trip"} ·{" "}
                 {tooltip.pin.tripStartDate.slice(0, 4)}
+                {tooltip.pin.visitCount > 1
+                  ? ` · ${tooltip.pin.visitCount} visits`
+                  : ""}
               </p>
             </>
           ) : (

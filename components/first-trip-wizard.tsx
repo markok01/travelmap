@@ -34,6 +34,7 @@ export function FirstTripWizard({
     members.filter((m) => m.userId).map((m) => m.id).slice(0, 1),
   );
   const [placeName, setPlaceName] = useState("");
+  const [title, setTitle] = useState("");
 
   const filteredCountries = useMemo(() => {
     const q = countryQuery.trim().toLowerCase();
@@ -262,11 +263,11 @@ export function FirstTripWizard({
         <div className="space-y-3">
           <div>
             <h2 className="font-[family-name:var(--font-display)] text-xl font-semibold">
-              Add a city? (optional)
+              Name it & pin a city
             </h2>
             <p className="mt-1 text-sm text-[var(--muted-foreground)]">
-              Pin a main city or place — you can add more later. Press Save when
-              you’re done.
+              Give the trip a title, and optionally pin a city. You can add more
+              places later.
             </p>
           </div>
           {selectedCountry ? (
@@ -278,7 +279,23 @@ export function FirstTripWizard({
             </p>
           ) : null}
           <label className="block space-y-1.5">
-            <span className="text-sm font-medium">City or place</span>
+            <span className="text-sm font-medium">Trip title</span>
+            <input
+              name="title"
+              className="field"
+              placeholder={
+                selectedCountry
+                  ? `Summer in ${selectedCountry.name}`
+                  : "Summer getaway"
+              }
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              onKeyDown={blockEnterSubmit}
+              autoComplete="off"
+            />
+          </label>
+          <label className="block space-y-1.5">
+            <span className="text-sm font-medium">City or place (optional)</span>
             <input
               name="placeName"
               className="field"

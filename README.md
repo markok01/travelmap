@@ -1,36 +1,89 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Family Travel Atlas
 
-## Getting Started
+Track individual and family journeys on one shared atlas.
 
-First, run the development server:
+## Stack
+
+- Next.js 16 (App Router)
+- Better Auth (email/password)
+- Drizzle ORM + Aiven MySQL
+- Tailwind CSS 4
+
+## Setup
 
 ```bash
+cp .env.example .env.local
+# fill MYSQL_* from Aiven + BETTER_AUTH_SECRET (openssl rand -base64 32)
+
+npm install
+npm run db:push
+npm run db:seed
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Database: Aiven MySQL (see `.env.local`). Local SQLite is no longer used.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Open [http://localhost:3000](http://localhost:3000).
 
-## Learn More
+### Demo account (after seed)
 
-To learn more about Next.js, take a look at the following resources:
+- Email: `demo@familytravel.app`
+- Password: `demo1234`
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Countries catalog
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- UI: [/countries](http://localhost:3000/countries)
+- API: `GET /api/countries?continent=Europe&q=serb`
 
-## Deploy on Vercel
+### Trips
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- List: `/trips`
+- New: `/trips/new`
+- Country detail: `/countries/RS`
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Map
+
+- Interactive 2D + 3D globe: `/map`
+- Toggle **2D | 3D** (shared filters)
+- Modes: Anyone · Individual · Couple · Whole family
+- Demo trips light up RS / IT / JP
+
+### Statistics
+
+- `/stats` with scope filters (Anyone / Individual / Couple / Family)
+- Coverage %, days, continents, months, seasons, top country/city
+
+### Timeline
+
+- `/timeline` tabs: Timeline · Year · Calendar
+- Scope filters + travel-day calendar
+
+```bash
+npm run db:seed:countries
+npm run db:seed:trips
+```
+
+## Scripts
+
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start development server |
+| `npm run db:push` | Sync schema to Aiven MySQL |
+| `npm run db:seed` | Seed demo family + countries + trips |
+| `npm run db:seed:countries` | Upsert country catalog only |
+| `npm run db:seed:trips` | Seed sample trips for demo family |
+| `npm run db:studio` | Open Drizzle Studio |
+
+## Current scope
+
+- Auth (register / login)
+- Family account + members
+- Countries catalog (~196)
+- Trips CRUD
+- Interactive 2D world map + 3D globe
+- Statistics
+- Timeline / year overview / calendar
+- App shell + light / dark theme
+
+Not yet: achievements, wishlist, media, export.

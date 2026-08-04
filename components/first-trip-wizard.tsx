@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useActionState } from "react";
+import { useMemo, useRef, useState, useActionState } from "react";
 import {
   createTripAction,
   type TripActionState,
@@ -19,6 +19,7 @@ export function FirstTripWizard({
   members: FamilyMember[];
   defaultCountryCode?: string;
 }) {
+  const formRef = useRef<HTMLFormElement>(null);
   const [state, formAction, pending] = useActionState(
     createTripAction,
     initialState,
@@ -71,8 +72,27 @@ export function FirstTripWizard({
     setStep((s) => s - 1);
   }
 
+  /** Only Save button may create the trip — never Enter while typing the city. */
+  function saveTrip() {
+    if (!formRef.current || pending) return;
+    if (!countryCode || participantIds.length === 0) return;
+    formAction(new FormData(formRef.current));
+  }
+
+  function blockEnterSubmit(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter") e.preventDefault();
+  }
+
   return (
-    <form action={formAction} className="space-y-6">
+    <form
+      ref={formRef}
+      action={formAction}
+      className="space-y-6"
+      onSubmit={(e) => {
+        // Block implicit submits (Enter in inputs). Saving is via Save button only.
+        e.preventDefault();
+      }}
+    >
       <input type="hidden" name="countryCode" value={countryCode} />
       <input type="hidden" name="startDate" value={startDate} />
       <input type="hidden" name="endDate" value={endDate} />
@@ -131,6 +151,7 @@ export function FirstTripWizard({
               <input
                 value={countryQuery}
                 onChange={(e) => setCountryQuery(e.target.value)}
+                onKeyDown={blockEnterSubmit}
                 className="field"
                 placeholder="Search countries…"
                 aria-label="Search countries"
@@ -180,20 +201,20 @@ export function FirstTripWizard({
               <span className="text-sm font-medium">Start date</span>
               <input
                 type="date"
-                required
                 className="field"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
+                onKeyDown={blockEnterSubmit}
               />
             </label>
             <label className="block space-y-1.5">
               <span className="text-sm font-medium">End date</span>
               <input
                 type="date"
-                required
                 className="field"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
+                onKeyDown={blockEnterSubmit}
               />
             </label>
           </div>
@@ -244,7 +265,8 @@ export function FirstTripWizard({
               Add a city? (optional)
             </h2>
             <p className="mt-1 text-sm text-[var(--muted-foreground)]">
-              Pin a main city or place — you can add more later.
+              Pin a main city or place — you can add more later. Press Save when
+              you’re done.
             </p>
           </div>
           {selectedCountry ? (
@@ -263,6 +285,9 @@ export function FirstTripWizard({
               placeholder="Belgrade, Kyoto, Reykjavik…"
               value={placeName}
               onChange={(e) => setPlaceName(e.target.value)}
+              onKeyDown={blockEnterSubmit}
+              autoComplete="off"
+              enterKeyHint="done"
             />
           </label>
         </div>
@@ -292,8 +317,9 @@ export function FirstTripWizard({
           </button>
         ) : (
           <button
-            type="submit"
+            type="button"
             className="btn-primary"
+            onClick={saveTrip}
             disabled={pending || !countryCode || participantIds.length === 0}
           >
             {pending ? "Saving…" : "Save trip"}

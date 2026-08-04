@@ -174,9 +174,16 @@ function escapeAttr(value: string) {
 }
 
 export function appOrigin() {
+  // On Vercel previews, prefer the deployment host so reset links stay on the same origin.
+  if (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL.replace(/^https?:\/\//, "").replace(/\/$/, "")}`;
+  }
+
   return (
     process.env.BETTER_AUTH_URL?.replace(/\/$/, "") ||
     process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ||
-    "http://localhost:3000"
+    (process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL.replace(/^https?:\/\//, "").replace(/\/$/, "")}`
+      : "http://localhost:3000")
   );
 }

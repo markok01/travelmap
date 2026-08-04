@@ -14,6 +14,8 @@ Track individual and family journeys on one shared atlas.
 ```bash
 cp .env.example .env.local
 # fill MYSQL_* from Aiven + BETTER_AUTH_SECRET (openssl rand -base64 32)
+# optional for password emails: RESEND_API_KEY + EMAIL_FROM
+# (without RESEND_API_KEY, reset links print in the server console)
 
 npm install
 npm run db:push
@@ -22,6 +24,12 @@ npm run dev
 ```
 
 Database: Aiven MySQL (see `.env.local`). Local SQLite is no longer used.
+
+### Password reset / change
+
+- Forgot password: `/forgot-password` → email (or console link in dev) → `/reset-password?token=…`
+- Change password: Settings → Password
+- Vercel env: `BETTER_AUTH_URL` (production URL), `RESEND_API_KEY`, `EMAIL_FROM`
 
 
 Open [http://localhost:3000](http://localhost:3000).

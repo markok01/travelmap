@@ -1,4 +1,5 @@
 import { AppearanceSettings } from "@/components/appearance-settings";
+import { ChangePasswordForm } from "@/components/change-password-form";
 import { FamilyMembersPanel } from "@/components/family-members-panel";
 import { ShareSettings } from "@/components/share-settings";
 import { WishlistPanel } from "@/components/wishlist-panel";
@@ -43,6 +44,8 @@ export default async function SettingsPage() {
       </div>
 
       <AppearanceSettings />
+
+      <ChangePasswordForm />
 
       <WishlistPanel countries={countries} items={wishlist} />
 

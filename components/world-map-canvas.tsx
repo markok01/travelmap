@@ -28,7 +28,7 @@ import {
 } from "@/lib/map/colors";
 import {
   landColorFromLat,
-  mapPinColor,
+  mapPinPalette,
   TERRAIN,
   visitOverlayColor,
   type MapTheme,
@@ -85,6 +85,7 @@ export function WorldMapCanvas({
   design = "atlas",
   onCountryClick,
   onPinClick,
+  onBackgroundClick,
 }: {
   visitMap: FamilyVisitMap;
   countries: Country[];
@@ -102,6 +103,7 @@ export function WorldMapCanvas({
   design?: DesignTheme;
   onCountryClick?: (code: string) => void;
   onPinClick?: (pin: MapPin) => void;
+  onBackgroundClick?: () => void;
 }) {
   const router = useRouter();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -112,7 +114,19 @@ export function WorldMapCanvas({
   const [transform, setTransform] = useState({ x: 0, y: 0, k: 1 });
   const [tooltip, setTooltip] = useState<TooltipState>(null);
   const [hoveredCode, setHoveredCode] = useState<string | null>(null);
+  const [canHover, setCanHover] = useState(true);
   const hoverClearRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pointersRef = useRef(
+    new Map<number, { x: number; y: number }>(),
+  );
+  const pinchRef = useRef<{
+    distance: number;
+    k: number;
+    midX: number;
+    midY: number;
+    origX: number;
+    origY: number;
+  } | null>(null);
   const dragRef = useRef<{
     pointerId: number;
     startX: number;
@@ -121,6 +135,7 @@ export function WorldMapCanvas({
     origY: number;
     moved: boolean;
   } | null>(null);
+  const gestureMovedRef = useRef(false);
 
   const width = viewport.width;
   const height = viewport.height;
@@ -142,6 +157,14 @@ export function WorldMapCanvas({
       hoverClearRef.current = null;
     }, 140);
   }
+
+  useEffect(() => {
+    const mq = window.matchMedia("(hover: hover) and (pointer: fine)");
+    const sync = () => setCanHover(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -316,8 +339,44 @@ export function WorldMapCanvas({
     });
   }
 
+  function pointerDistance(
+    a: { x: number; y: number },
+    b: { x: number; y: number },
+  ) {
+    const dx = a.x - b.x;
+    const dy = a.y - b.y;
+    return Math.hypot(dx, dy);
+  }
+
   function onPointerDown(e: ReactPointerEvent<SVGSVGElement>) {
     (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
+    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    gestureMovedRef.current = false;
+
+    if (pointersRef.current.size === 2) {
+      const [a, b] = [...pointersRef.current.values()];
+      const svg = svgRef.current;
+      const bounds = svg?.getBoundingClientRect();
+      const midX = bounds
+        ? (((a.x + b.x) / 2 - bounds.left) / bounds.width) * width
+        : width / 2;
+      const midY = bounds
+        ? (((a.y + b.y) / 2 - bounds.top) / bounds.height) * height
+        : height / 2;
+      pinchRef.current = {
+        distance: pointerDistance(a, b) || 1,
+        k: transform.k,
+        midX,
+        midY,
+        origX: transform.x,
+        origY: transform.y,
+      };
+      dragRef.current = null;
+      gestureMovedRef.current = true;
+      return;
+    }
+
+    pinchRef.current = null;
     dragRef.current = {
       pointerId: e.pointerId,
       startX: e.clientX,
@@ -329,11 +388,34 @@ export function WorldMapCanvas({
   }
 
   function onPointerMove(e: ReactPointerEvent<SVGSVGElement>) {
+    if (pointersRef.current.has(e.pointerId)) {
+      pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    }
+
+    if (pinchRef.current && pointersRef.current.size >= 2) {
+      gestureMovedRef.current = true;
+      const [a, b] = [...pointersRef.current.values()];
+      const distance = pointerDistance(a, b) || 1;
+      const scale = distance / pinchRef.current.distance;
+      const nextK = Math.min(8, Math.max(0.8, pinchRef.current.k * scale));
+      const ratio = nextK / pinchRef.current.k;
+      const { midX, midY, origX, origY } = pinchRef.current;
+      setTransform({
+        k: nextK,
+        x: midX - (midX - origX) * ratio,
+        y: midY - (midY - origY) * ratio,
+      });
+      return;
+    }
+
     const drag = dragRef.current;
     if (!drag || drag.pointerId !== e.pointerId) return;
     const dx = e.clientX - drag.startX;
     const dy = e.clientY - drag.startY;
-    if (Math.abs(dx) + Math.abs(dy) > 3) drag.moved = true;
+    if (Math.abs(dx) + Math.abs(dy) > 6) {
+      drag.moved = true;
+      gestureMovedRef.current = true;
+    }
     const svg = svgRef.current;
     if (!svg) return;
     const bounds = svg.getBoundingClientRect();
@@ -347,6 +429,10 @@ export function WorldMapCanvas({
   }
 
   function onPointerUp(e: ReactPointerEvent<SVGSVGElement>) {
+    pointersRef.current.delete(e.pointerId);
+    if (pointersRef.current.size < 2) {
+      pinchRef.current = null;
+    }
     const drag = dragRef.current;
     if (drag && drag.pointerId === e.pointerId) {
       dragRef.current = null;
@@ -458,12 +544,28 @@ export function WorldMapCanvas({
           ) : null}
         </defs>
 
-        <rect width={width} height={height} fill={canvasBg} />
+        <rect
+          width={width}
+          height={height}
+          fill={canvasBg}
+          onClick={() => {
+            if (gestureMovedRef.current) return;
+            onBackgroundClick?.();
+          }}
+        />
         <g
           transform={`translate(${transform.x} ${transform.y}) scale(${transform.k})`}
         >
           {spherePath ? (
-            <path d={spherePath} fill={`url(#${gradId})`} stroke="none" />
+            <path
+              d={spherePath}
+              fill={`url(#${gradId})`}
+              stroke="none"
+              onClick={() => {
+                if (gestureMovedRef.current) return;
+                onBackgroundClick?.();
+              }}
+            />
           ) : null}
 
           {geographies.map((geo, index) => {
@@ -532,6 +634,7 @@ export function WorldMapCanvas({
                   opacity: visited ? (isHovered ? 1 : 0.96) : 1,
                 }}
                 onMouseEnter={(ev) => {
+                  if (!canHover) return;
                   const svg = svgRef.current;
                   if (!svg) return;
                   const bounds = svg.getBoundingClientRect();
@@ -545,6 +648,7 @@ export function WorldMapCanvas({
                   if (visited && code) revealCountry(code);
                 }}
                 onMouseMove={(ev) => {
+                  if (!canHover) return;
                   const svg = svgRef.current;
                   if (!svg) return;
                   const bounds = svg.getBoundingClientRect();
@@ -557,11 +661,12 @@ export function WorldMapCanvas({
                   });
                 }}
                 onMouseLeave={() => {
+                  if (!canHover) return;
                   setTooltip(null);
                   if (visited) revealCountry(null);
                 }}
                 onClick={() => {
-                  if (dragRef.current?.moved) return;
+                  if (gestureMovedRef.current) return;
                   if (!code) return;
                   if (onCountryClick) onCountryClick(code);
                   else router.push(`/countries/${code}`);
@@ -571,15 +676,21 @@ export function WorldMapCanvas({
           })}
 
           {visiblePins.map(({ pin, x, y }, pinIndex) => {
-            const fill = mapPinColor(pin.color, theme, design);
-            // Tiny city dots — scale gently with zoom so they stay precise
-            const r = Math.max(1.6, 2.15 / Math.sqrt(Math.max(transform.k, 1)));
+            const palette = mapPinPalette(pin.color, theme, design);
+            // Petite precision dots — stay small even when zoomed out
+            const zoom = Math.max(transform.k, 1);
+            const coreR = Math.max(0.55, 0.78 / Math.sqrt(zoom));
+            const ringR = coreR + 0.45 / zoom;
+            const haloR = ringR + 0.55 / zoom;
+            const pulseR = haloR;
+            const hitR = Math.max(haloR, 14 / zoom);
             return (
               <g
                 key={pin.id}
                 transform={`translate(${x}, ${y})`}
                 style={{ cursor: "pointer" }}
                 onMouseEnter={(ev) => {
+                  if (!canHover) return;
                   revealCountry(pin.countryCode);
                   const svg = svgRef.current;
                   if (!svg) return;
@@ -592,6 +703,7 @@ export function WorldMapCanvas({
                   });
                 }}
                 onMouseMove={(ev) => {
+                  if (!canHover) return;
                   const svg = svgRef.current;
                   if (!svg) return;
                   const bounds = svg.getBoundingClientRect();
@@ -603,38 +715,46 @@ export function WorldMapCanvas({
                   });
                 }}
                 onMouseLeave={() => {
+                  if (!canHover) return;
                   setTooltip(null);
                   revealCountry(null);
                 }}
                 onClick={(ev) => {
                   ev.stopPropagation();
-                  if (dragRef.current?.moved) return;
+                  if (gestureMovedRef.current) return;
                   onPinClick?.(pin);
                 }}
               >
+                <circle r={hitR} fill="transparent" />
                 <g
                   className="map-city-pin"
                   style={
                     {
-                      "--pin-delay": `${Math.min(pinIndex, 8) * 45}ms`,
+                      "--pin-delay": `${Math.min(pinIndex, 10) * 55}ms`,
                     } as CSSProperties
                   }
                 >
                   <circle
+                    className="map-city-pin-pulse"
+                    r={pulseR}
+                    fill="none"
+                    stroke={palette.pulse}
+                    strokeWidth={1.1 / zoom}
+                  />
+                  <circle
                     className="map-city-pin-halo"
-                    r={r + 1.4 / Math.max(transform.k, 1)}
-                    fill={
-                      theme === "dark"
-                        ? "rgba(0,0,0,0.45)"
-                        : "rgba(255,255,255,0.92)"
-                    }
+                    r={haloR}
+                    fill={palette.halo}
+                  />
+                  <circle
+                    className="map-city-pin-ring"
+                    r={ringR}
+                    fill={palette.accent}
                   />
                   <circle
                     className="map-city-pin-dot"
-                    r={r}
-                    fill={fill}
-                    stroke="rgba(255,255,255,0.95)"
-                    strokeWidth={0.7 / Math.max(transform.k, 1)}
+                    r={coreR}
+                    fill={palette.core}
                   />
                 </g>
               </g>
@@ -643,15 +763,18 @@ export function WorldMapCanvas({
         </g>
       </svg>
 
-      {tooltip ? (
+      {tooltip && canHover ? (
         <div
-          className="pointer-events-none absolute z-20 max-w-xs rounded-[var(--radius-lg)] border border-transparent bg-[var(--card)]/95 px-3 py-2 text-sm shadow-[var(--shadow-md)] backdrop-blur-sm"
+          className="map-tooltip pointer-events-none absolute z-20 max-w-[min(16rem,calc(100%-1rem))] rounded-[var(--radius-lg)] border border-transparent bg-[var(--card)]/95 px-3 py-2 text-sm shadow-[var(--shadow-md)] backdrop-blur-sm"
           style={{
             left: Math.min(
-              tooltip.x + 12,
-              (svgRef.current?.clientWidth ?? 300) - 180,
+              Math.max(8, tooltip.x + 12),
+              Math.max(8, (containerRef.current?.clientWidth ?? 300) - 168),
             ),
-            top: Math.max(8, tooltip.y - 12),
+            top: Math.min(
+              Math.max(8, tooltip.y - 12),
+              Math.max(8, (containerRef.current?.clientHeight ?? 200) - 72),
+            ),
           }}
         >
           {tooltip.kind === "pin" ? (

@@ -1,9 +1,11 @@
 "use client";
 
+import { useT } from "@/components/language-provider";
 import { useTheme } from "@/components/theme-provider";
 
 export function ThemeToggle({ className = "" }: { className?: string }) {
   const { theme, design, toggleTheme } = useTheme();
+  const t = useT();
   const isMinimal = design === "minimal";
 
   return (
@@ -17,10 +19,10 @@ export function ThemeToggle({ className = "" }: { className?: string }) {
       } ${className}`}
       aria-label={
         theme === "light"
-          ? "Switch to dark appearance"
-          : "Switch to light appearance"
+          ? t("settings.switchToDark")
+          : t("settings.switchToLight")
       }
-      title="Appearance"
+      title={t("settings.appearance")}
     >
       {theme === "light" ? (
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden>

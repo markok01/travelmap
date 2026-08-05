@@ -22,7 +22,7 @@ import {
 import {
   EARTH_DAY_TEXTURE,
   EARTH_TOPOLOGY_TEXTURE,
-  mapPinColor,
+  mapPinPalette,
   TERRAIN,
   visitOverlayColor,
   withAlpha,
@@ -42,7 +42,7 @@ type TopologyCountries = Topology<{
   countries: GeometryCollection;
 }>;
 
-type GlobePin = MapPin & { lat: number; lng: number; size: number };
+type GlobePin = MapPin & { lat: number; lng: number };
 
 function detectWebGL() {
   try {
@@ -81,6 +81,7 @@ export function GlobeCanvas({
   design = "atlas",
   onCountryClick,
   onPinClick,
+  onBackgroundClick,
 }: {
   visitMap: FamilyVisitMap;
   countries: Country[];
@@ -99,6 +100,7 @@ export function GlobeCanvas({
   design?: DesignTheme;
   onCountryClick?: (code: string) => void;
   onPinClick?: (pin: MapPin) => void;
+  onBackgroundClick?: () => void;
 }) {
   const router = useRouter();
   const globeRef = useRef<GlobeMethods | undefined>(undefined);
@@ -109,6 +111,7 @@ export function GlobeCanvas({
   const [webgl, setWebgl] = useState(true);
   const [textureOk, setTextureOk] = useState(true);
   const [hoveredCode, setHoveredCode] = useState<string | null>(null);
+  const [canHover, setCanHover] = useState(true);
   const hoverClearRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const palette = TERRAIN[theme];
@@ -130,6 +133,14 @@ export function GlobeCanvas({
       hoverClearRef.current = null;
     }, 160);
   }
+
+  useEffect(() => {
+    const mq = window.matchMedia("(hover: hover) and (pointer: fine)");
+    const sync = () => setCanHover(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -296,6 +307,16 @@ export function GlobeCanvas({
 
   const revealCode = hoveredCode || focusCode;
 
+  const onPinClickRef = useRef(onPinClick);
+  onPinClickRef.current = onPinClick;
+  const revealCountryRef = useRef(revealCountry);
+  revealCountryRef.current = revealCountry;
+  const canHoverRef = useRef(canHover);
+  canHoverRef.current = canHover;
+  const onBackgroundClickRef = useRef(onBackgroundClick);
+  onBackgroundClickRef.current = onBackgroundClick;
+  const suppressBgRef = useRef(false);
+
   const globePins = useMemo<GlobePin[]>(() => {
     if (!revealCode) return [];
     return pins
@@ -304,9 +325,56 @@ export function GlobeCanvas({
         ...pin,
         lat: pin.latitude,
         lng: pin.longitude,
-        size: 0.12,
       }));
   }, [pins, revealCode]);
+
+  function makeGlobePinElement(d: object) {
+    const pin = d as GlobePin;
+    const palette = mapPinPalette(pin.color, theme, design);
+    const el = document.createElement("button");
+    el.type = "button";
+    el.className = "globe-city-pin";
+    el.style.setProperty("--pin-accent", palette.accent);
+    el.style.setProperty("--pin-core", palette.core);
+    el.style.setProperty("--pin-halo", palette.halo);
+    el.style.setProperty("--pin-pulse", palette.pulse);
+    el.setAttribute("aria-label", pin.name);
+    el.title = [
+      pin.name,
+      pin.tripTitle?.trim() || "Trip",
+      pin.tripStartDate.slice(0, 4),
+      pin.visitCount > 1 ? `${pin.visitCount} visits` : null,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+    el.innerHTML = `
+      <span class="globe-city-pin-pulse" aria-hidden="true"></span>
+      <span class="globe-city-pin-halo" aria-hidden="true"></span>
+      <span class="globe-city-pin-ring" aria-hidden="true"></span>
+      <span class="globe-city-pin-dot" aria-hidden="true"></span>
+    `;
+    el.addEventListener("pointerenter", () => {
+      if (!canHoverRef.current) return;
+      revealCountryRef.current(pin.countryCode);
+    });
+    el.addEventListener("pointerleave", () => {
+      if (!canHoverRef.current) return;
+      revealCountryRef.current(null);
+    });
+    el.addEventListener("click", (event) => {
+      event.stopPropagation();
+      suppressBackgroundClick();
+      onPinClickRef.current?.(pin);
+    });
+    return el;
+  }
+
+  function suppressBackgroundClick() {
+    suppressBgRef.current = true;
+    window.setTimeout(() => {
+      suppressBgRef.current = false;
+    }, 0);
+  }
 
   function resetCamera() {
     globeRef.current?.pointOfView({ lat: 20, lng: 10, altitude: 2.2 }, 900);
@@ -435,6 +503,7 @@ export function GlobeCanvas({
         }}
         polygonsTransitionDuration={380}
         onPolygonHover={(poly) => {
+          if (!canHoverRef.current) return;
           if (!poly) {
             revealCountry(null);
             return;
@@ -444,65 +513,66 @@ export function GlobeCanvas({
           if (code && fills[code]) revealCountry(code);
           else revealCountry(null);
         }}
-        polygonLabel={(d) => {
-          const feat = d as CountryFeature;
-          const code = feat.properties.code;
-          const meta = code ? countryMeta.get(code) : undefined;
-          const name = meta?.name ?? feat.properties.name;
-          const flag = meta?.flagEmoji ?? "";
-          const visitors = code ? visitMap.visitorsByCountry[code] ?? [] : [];
-          const countryPins = code
-            ? pins.filter((p) => p.countryCode === code)
-            : [];
-          const visitorHtml = visitors.length
-            ? visitors
-                .map(
-                  (v) =>
-                    `<div style="display:flex;gap:6px;align-items:center;margin-top:4px;font-size:12px"><span style="width:8px;height:8px;border-radius:999px;background:${v.color}"></span>${escapeHtml(v.displayName)}</div>`,
-                )
-                .join("")
-            : `<div style="margin-top:4px;font-size:12px;opacity:.7">Not visited yet</div>`;
-          const placesHtml = countryPins.length
-            ? `<div style="margin-top:6px;font-size:11px;opacity:.75">${countryPins
-                .slice(0, 4)
-                .map((p) => escapeHtml(p.name))
-                .join(" · ")}${countryPins.length > 4 ? "…" : ""}</div>`
-            : "";
+        polygonLabel={
+          canHover
+            ? (d) => {
+                const feat = d as CountryFeature;
+                const code = feat.properties.code;
+                const meta = code ? countryMeta.get(code) : undefined;
+                const name = meta?.name ?? feat.properties.name;
+                const flag = meta?.flagEmoji ?? "";
+                const visitors = code
+                  ? visitMap.visitorsByCountry[code] ?? []
+                  : [];
+                const countryPins = code
+                  ? pins.filter((p) => p.countryCode === code)
+                  : [];
+                const visitorHtml = visitors.length
+                  ? visitors
+                      .map(
+                        (v) =>
+                          `<div style="display:flex;gap:6px;align-items:center;margin-top:4px;font-size:12px"><span style="width:8px;height:8px;border-radius:999px;background:${v.color}"></span>${escapeHtml(v.displayName)}</div>`,
+                      )
+                      .join("")
+                  : `<div style="margin-top:4px;font-size:12px;opacity:.7">Not visited yet</div>`;
+                const placesHtml = countryPins.length
+                  ? `<div style="margin-top:6px;font-size:11px;opacity:.75">${countryPins
+                      .slice(0, 4)
+                      .map((p) => escapeHtml(p.name))
+                      .join(" · ")}${countryPins.length > 4 ? "…" : ""}</div>`
+                  : "";
 
-          return `<div style="font-family:sans-serif;padding:2px 0">
+                return `<div style="font-family:sans-serif;padding:2px 0;max-width:min(16rem,70vw)">
             <div style="font-weight:600">${flag} ${escapeHtml(name)}${code ? ` · ${escapeHtml(code)}` : ""}</div>
             ${visitorHtml}
             ${placesHtml}
           </div>`;
-        }}
+              }
+            : undefined
+        }
         onPolygonClick={(poly) => {
           const feat = poly as CountryFeature;
           if (!feat?.properties?.code) return;
+          suppressBackgroundClick();
           if (onCountryClick) onCountryClick(feat.properties.code);
           else router.push(`/countries/${feat.properties.code}`);
         }}
-        pointsData={globePins}
-        pointLat="lat"
-        pointLng="lng"
-        pointAltitude={0.012}
-        pointRadius="size"
-        pointsTransitionDuration={450}
-        pointColor={(d) =>
-          mapPinColor((d as GlobePin).color, theme, design)
-        }
-        pointLabel={(d) => {
-          const pin = d as GlobePin;
-          return `<div style="font-family:sans-serif;padding:2px 0">
-            <div style="font-weight:600">${escapeHtml(pin.name)}</div>
-            <div style="font-size:12px;opacity:.75;margin-top:2px">${escapeHtml(pin.tripTitle?.trim() || "Trip")} · ${escapeHtml(pin.tripStartDate.slice(0, 4))}${pin.visitCount > 1 ? ` · ${pin.visitCount} visits` : ""}</div>
-          </div>`;
+        onGlobeClick={() => {
+          if (suppressBgRef.current) return;
+          onBackgroundClickRef.current?.();
         }}
-        onPointHover={(d) => {
-          if (d) revealCountry((d as GlobePin).countryCode);
-          else revealCountry(null);
-        }}
-        onPointClick={(d) => {
-          onPinClick?.(d as GlobePin);
+        htmlElementsData={globePins}
+        htmlLat="lat"
+        htmlLng="lng"
+        htmlAltitude={0.022}
+        htmlElement={makeGlobePinElement}
+        htmlTransitionDuration={0}
+        htmlElementVisibilityModifier={(el, isVisible) => {
+          el.style.opacity = isVisible ? "1" : "0";
+          el.style.pointerEvents = isVisible ? "auto" : "none";
+          el.style.transform = isVisible
+            ? "translate(-50%, -50%) scale(1)"
+            : "translate(-50%, -50%) scale(0.6)";
         }}
       />
 

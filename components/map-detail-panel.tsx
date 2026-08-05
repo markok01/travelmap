@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useTransition } from "react";
+import { useT } from "@/components/language-provider";
 import { addWishlistItemAction } from "@/lib/actions/wishlist";
 import type { Country } from "@/lib/db/schema";
 import type { MapPin, MapTripCard } from "@/lib/map/pins";
@@ -15,8 +16,8 @@ function yearOf(iso: string) {
   return iso.slice(0, 4);
 }
 
-function tripLabel(trip: MapTripCard) {
-  return trip.title?.trim() || `${trip.countryName} trip`;
+function tripLabel(trip: MapTripCard, t: ReturnType<typeof useT>) {
+  return trip.title?.trim() || t("map.tripFallback", { name: trip.countryName });
 }
 
 function matchesCountry(trip: MapTripCard, code: string) {
@@ -46,6 +47,7 @@ export function MapDetailPanel({
   onSelectTrip: (tripId: string) => void;
   onFocusPlace: (pin: MapPin) => void;
 }) {
+  const t = useT();
   if (!selection) return null;
 
   if (selection.kind === "country") {
@@ -67,15 +69,21 @@ export function MapDetailPanel({
         <header className="flex items-start justify-between gap-3 border-b border-[var(--border)] px-4 py-3">
           <div className="min-w-0">
             <p className="text-xs uppercase tracking-[0.12em] text-[var(--muted-foreground)]">
-              Country
+              {t("map.country")}
             </p>
             <h2 className="mt-0.5 truncate text-lg font-semibold tracking-tight">
               {flag} {name}
             </h2>
             <p className="text-sm text-[var(--muted-foreground)]">
-              {countryTrips.length} trip{countryTrips.length === 1 ? "" : "s"}
+              {countryTrips.length === 1
+                ? t("map.tripCountOne", { count: countryTrips.length })
+                : t("map.tripCount", { count: countryTrips.length })}
               {countryPins.length
-                ? ` · ${countryPins.length} place${countryPins.length === 1 ? "" : "s"}`
+                ? ` · ${
+                    countryPins.length === 1
+                      ? t("map.place", { count: countryPins.length })
+                      : t("map.places", { count: countryPins.length })
+                  }`
                 : ""}
             </p>
           </div>
@@ -83,7 +91,7 @@ export function MapDetailPanel({
             type="button"
             onClick={onClose}
             className="rounded-[var(--radius-control)] px-2 py-1 text-sm text-[var(--muted-foreground)] hover:bg-[var(--muted)]"
-            aria-label="Close panel"
+            aria-label={t("common.closePanel")}
           >
             ✕
           </button>
@@ -93,7 +101,7 @@ export function MapDetailPanel({
           {countryPins.length > 0 ? (
             <div>
               <p className="mb-2 text-xs uppercase tracking-[0.12em] text-[var(--muted-foreground)]">
-                Cities & places
+                {t("map.citiesPlaces")}
               </p>
               <ul className="space-y-1">
                 {countryPins.map((pin) => (
@@ -120,12 +128,12 @@ export function MapDetailPanel({
 
           {countryTrips.length === 0 ? (
             <p className="text-sm text-[var(--muted-foreground)]">
-              No trips logged here yet.
+              {t("map.noTripsHere")}
             </p>
           ) : (
             <div>
               <p className="mb-2 text-xs uppercase tracking-[0.12em] text-[var(--muted-foreground)]">
-                Trips
+                {t("map.trips")}
               </p>
               <div className="space-y-3">
                 {countryTrips.map((trip) => (
@@ -135,7 +143,7 @@ export function MapDetailPanel({
                     onClick={() => onSelectTrip(trip.id)}
                     className="w-full rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--background)] p-3 text-left transition hover:border-[var(--accent)]"
                   >
-                    <p className="font-medium">{tripLabel(trip)}</p>
+                    <p className="font-medium">{tripLabel(trip, t)}</p>
                     <p className="mt-0.5 text-xs text-[var(--muted-foreground)]">
                       {yearOf(trip.startDate)}
                       {trip.places.length
@@ -188,10 +196,10 @@ export function MapDetailPanel({
       <header className="flex items-start justify-between gap-3 border-b border-[var(--border)] px-4 py-3">
         <div className="min-w-0">
           <p className="text-xs uppercase tracking-[0.12em] text-[var(--muted-foreground)]">
-            Trip
+            {t("map.trip")}
           </p>
           <h2 className="mt-0.5 truncate text-lg font-semibold tracking-tight">
-            {tripLabel(trip)}
+            {tripLabel(trip, t)}
           </h2>
           <p className="text-sm text-[var(--muted-foreground)]">
             {trip.countryFlag} {trip.countryName} · {yearOf(trip.startDate)}
@@ -201,7 +209,7 @@ export function MapDetailPanel({
           type="button"
           onClick={onClose}
           className="rounded-[var(--radius-control)] px-2 py-1 text-sm text-[var(--muted-foreground)] hover:bg-[var(--muted)]"
-          aria-label="Close panel"
+          aria-label={t("common.closePanel")}
         >
           ✕
         </button>
@@ -230,7 +238,7 @@ export function MapDetailPanel({
         {tripPlacePins.length > 0 ? (
           <div>
             <p className="mb-2 text-xs uppercase tracking-[0.12em] text-[var(--muted-foreground)]">
-              Places
+              {t("map.placesSection")}
             </p>
             <ul className="space-y-1">
               {tripPlacePins.map((pin) => (
@@ -264,15 +272,16 @@ export function MapDetailPanel({
           </div>
         ) : trip.places.length > 0 ? (
           <p className="text-sm text-[var(--muted-foreground)]">
-            Places without map coordinates:{" "}
-            {trip.places.map((p) => p.name).join(", ")}
+            {t("map.noMapCoords", {
+              names: trip.places.map((p) => p.name).join(", "),
+            })}
           </p>
         ) : null}
       </div>
 
       <footer className="border-t border-[var(--border)] px-4 py-3">
         <Link href={`/trips/${trip.id}`} className="btn-primary w-full text-sm">
-          Open trip
+          {t("map.openTrip")}
         </Link>
       </footer>
     </aside>
@@ -286,6 +295,7 @@ function CountryPanelFooter({
   code: string;
   onWishlist: boolean;
 }) {
+  const t = useT();
   const [pending, startTransition] = useTransition();
 
   return (
@@ -294,7 +304,7 @@ function CountryPanelFooter({
         href={`/countries/${code}`}
         className="text-sm text-[var(--accent)] hover:underline"
       >
-        Open country page
+        {t("map.openCountryPage")}
       </Link>
       {!onWishlist ? (
         <button
@@ -307,10 +317,12 @@ function CountryPanelFooter({
             })
           }
         >
-          {pending ? "Adding…" : "Add to wishlist"}
+          {pending ? t("common.adding") : t("map.addToWishlist")}
         </button>
       ) : (
-        <span className="text-sm text-[var(--muted-foreground)]">Wishlisted</span>
+        <span className="text-sm text-[var(--muted-foreground)]">
+          {t("map.wishlisted")}
+        </span>
       )}
     </footer>
   );

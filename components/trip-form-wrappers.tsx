@@ -8,7 +8,9 @@ import {
 } from "@/lib/actions/trips";
 import type { Country, FamilyMember } from "@/lib/db/schema";
 import { FirstTripWizard } from "@/components/first-trip-wizard";
+import { OfflineWriteGuard } from "@/components/offline-write-guard";
 import { TripForm } from "@/components/trip-form";
+import { useT } from "@/components/language-provider";
 
 const initialState: TripActionState = {};
 
@@ -22,11 +24,13 @@ export function CreateTripWizard({
   defaultCountryCode?: string;
 }) {
   return (
-    <FirstTripWizard
-      countries={countries}
-      members={members}
-      defaultCountryCode={defaultCountryCode}
-    />
+    <OfflineWriteGuard>
+      <FirstTripWizard
+        countries={countries}
+        members={members}
+        defaultCountryCode={defaultCountryCode}
+      />
+    </OfflineWriteGuard>
   );
 }
 
@@ -39,24 +43,27 @@ export function CreateTripForm({
   members: FamilyMember[];
   defaultCountryCode?: string;
 }) {
+  const t = useT();
   const [state, formAction, pending] = useActionState(
     createTripAction,
     initialState,
   );
 
   return (
-    <TripForm
-      action={formAction}
-      countries={countries}
-      members={members}
-      defaultValues={{
-        countryCode: defaultCountryCode ?? "",
-        privacy: "family",
-      }}
-      submitLabel="Create trip"
-      error={state.error}
-      pending={pending}
-    />
+    <OfflineWriteGuard>
+      <TripForm
+        action={formAction}
+        countries={countries}
+        members={members}
+        defaultValues={{
+          countryCode: defaultCountryCode ?? "",
+          privacy: "family",
+        }}
+        submitLabel={t("trips.create")}
+        error={state.error}
+        pending={pending}
+      />
+    </OfflineWriteGuard>
   );
 }
 
@@ -78,23 +85,35 @@ export function EditTripForm({
     notes: string;
     privacy: string;
     participantIds: string[];
-    places: { key: string; name: string; type: string; notes: string }[];
+    places: {
+      key: string;
+      name: string;
+      type: string;
+      notes: string;
+      latitude?: number | null;
+      longitude?: number | null;
+      countryCode?: string | null;
+      pinned?: boolean;
+    }[];
   };
 }) {
+  const t = useT();
   const [state, formAction, pending] = useActionState(
     updateTripAction,
     initialState,
   );
 
   return (
-    <TripForm
-      action={formAction}
-      countries={countries}
-      members={members}
-      defaultValues={{ tripId, ...defaults }}
-      submitLabel="Save changes"
-      error={state.error}
-      pending={pending}
-    />
+    <OfflineWriteGuard>
+      <TripForm
+        action={formAction}
+        countries={countries}
+        members={members}
+        defaultValues={{ tripId, ...defaults }}
+        submitLabel={t("trips.saveChanges")}
+        error={state.error}
+        pending={pending}
+      />
+    </OfflineWriteGuard>
   );
 }

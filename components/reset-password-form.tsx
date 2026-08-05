@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
+import { useT } from "@/components/language-provider";
 import { authClient } from "@/lib/auth-client";
 
 export function ResetPasswordForm({
@@ -12,6 +13,7 @@ export function ResetPasswordForm({
   token: string | null;
   invalidToken?: boolean;
 }) {
+  const t = useT();
   const router = useRouter();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -29,22 +31,21 @@ export function ResetPasswordForm({
       <div className="mx-auto w-full max-w-md space-y-5 text-center">
         <div className="space-y-2">
           <h1 className="font-[family-name:var(--font-display)] text-3xl font-semibold tracking-tight">
-            Link expired or invalid
+            {t("auth.linkExpiredTitle")}
           </h1>
           <p className="text-sm text-[var(--muted-foreground)]">
-            This password reset link is no longer valid. Request a new one to
-            continue.
+            {t("auth.linkExpiredSubtitle")}
           </p>
         </div>
         <Link href="/forgot-password" className="btn-primary inline-flex">
-          Request new link
+          {t("auth.requestNewLink")}
         </Link>
         <p className="text-sm text-[var(--muted-foreground)]">
           <Link
             href="/login"
             className="text-[var(--accent)] underline-offset-2 hover:underline"
           >
-            Back to sign in
+            {t("auth.backToSignIn")}
           </Link>
         </p>
       </div>
@@ -56,14 +57,14 @@ export function ResetPasswordForm({
       <div className="mx-auto w-full max-w-md space-y-5 text-center">
         <div className="space-y-2">
           <h1 className="font-[family-name:var(--font-display)] text-3xl font-semibold tracking-tight">
-            Password updated
+            {t("auth.passwordUpdatedTitle")}
           </h1>
           <p className="text-sm text-[var(--muted-foreground)]">
-            You can sign in with your new password.
+            {t("auth.passwordUpdatedSubtitle")}
           </p>
         </div>
         <Link href="/login" className="btn-primary inline-flex">
-          Sign in
+          {t("auth.signIn")}
         </Link>
       </div>
     );
@@ -74,15 +75,15 @@ export function ResetPasswordForm({
     setError(null);
 
     if (password.length < 8) {
-      setError("Password must be at least 8 characters.");
+      setError(t("auth.passwordMinLength"));
       return;
     }
     if (password !== confirm) {
-      setError("Passwords do not match.");
+      setError(t("auth.passwordsMismatch"));
       return;
     }
     if (!token) {
-      setError("Missing reset token.");
+      setError(t("auth.missingToken"));
       return;
     }
 
@@ -94,7 +95,7 @@ export function ResetPasswordForm({
     setLoading(false);
 
     if (resetError) {
-      setError(resetError.message ?? "Could not reset password.");
+      setError(resetError.message ?? t("auth.resetPasswordError"));
       return;
     }
 
@@ -109,15 +110,15 @@ export function ResetPasswordForm({
     <form onSubmit={onSubmit} className="mx-auto w-full max-w-md space-y-5">
       <div className="space-y-2 text-center">
         <h1 className="font-[family-name:var(--font-display)] text-3xl font-semibold tracking-tight">
-          Choose a new password
+          {t("auth.resetTitle")}
         </h1>
         <p className="text-sm text-[var(--muted-foreground)]">
-          Pick a strong password you haven’t used here before.
+          {t("auth.resetSubtitle")}
         </p>
       </div>
 
       <label className="block space-y-1.5">
-        <span className="text-sm font-medium">New password</span>
+        <span className="text-sm font-medium">{t("settings.newPassword")}</span>
         <input
           required
           type="password"
@@ -131,7 +132,7 @@ export function ResetPasswordForm({
       </label>
 
       <label className="block space-y-1.5">
-        <span className="text-sm font-medium">Confirm password</span>
+        <span className="text-sm font-medium">{t("auth.confirmPasswordLabel")}</span>
         <input
           required
           type="password"
@@ -155,7 +156,7 @@ export function ResetPasswordForm({
         disabled={loading || !canSubmit}
         className="btn-primary w-full"
       >
-        {loading ? "Saving…" : "Update password"}
+        {loading ? t("common.saving") : t("settings.updatePassword")}
       </button>
     </form>
   );

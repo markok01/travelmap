@@ -3,11 +3,13 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useT } from "@/components/language-provider";
 import { authClient } from "@/lib/auth-client";
 
 type Mode = "login" | "register";
 
 export function AuthForm({ mode }: { mode: Mode }) {
+  const t = useT();
   const router = useRouter();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -28,7 +30,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
       });
       setLoading(false);
       if (signUpError) {
-        setError(signUpError.message ?? "Could not create account.");
+        setError(signUpError.message ?? t("auth.createError"));
         return;
       }
       router.push("/onboarding");
@@ -42,7 +44,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
     });
     setLoading(false);
     if (signInError) {
-      setError(signInError.message ?? "Could not sign in.");
+      setError(signInError.message ?? t("auth.signInError"));
       return;
     }
     router.push("/dashboard");
@@ -53,18 +55,18 @@ export function AuthForm({ mode }: { mode: Mode }) {
     <form onSubmit={onSubmit} className="mx-auto w-full max-w-md space-y-5">
       <div className="space-y-2 text-center">
         <h1 className="font-[family-name:var(--font-display)] text-3xl font-semibold tracking-tight">
-          {mode === "login" ? "Welcome back" : "Create your account"}
+          {mode === "login" ? t("auth.welcomeBack") : t("auth.createAccount")}
         </h1>
         <p className="text-sm text-[var(--muted-foreground)]">
           {mode === "login"
-            ? "Sign in to your Family Travel Atlas."
-            : "Start a shared atlas for your family."}
+            ? t("auth.signInSubtitle")
+            : t("auth.registerSubtitle")}
         </p>
       </div>
 
       {mode === "register" ? (
         <label className="block space-y-1.5">
-          <span className="text-sm font-medium">Name</span>
+          <span className="text-sm font-medium">{t("auth.name")}</span>
           <input
             required
             value={name}
@@ -77,7 +79,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
       ) : null}
 
       <label className="block space-y-1.5">
-        <span className="text-sm font-medium">Email</span>
+        <span className="text-sm font-medium">{t("auth.email")}</span>
         <input
           required
           type="email"
@@ -91,13 +93,13 @@ export function AuthForm({ mode }: { mode: Mode }) {
 
       <label className="block space-y-1.5">
         <span className="flex items-center justify-between gap-3 text-sm font-medium">
-          <span>Password</span>
+          <span>{t("auth.password")}</span>
           {mode === "login" ? (
             <Link
               href="/forgot-password"
               className="font-normal text-[var(--accent)] underline-offset-2 hover:underline"
             >
-              Forgot password?
+              {t("auth.forgotPassword")}
             </Link>
           ) : null}
         </span>
@@ -121,25 +123,31 @@ export function AuthForm({ mode }: { mode: Mode }) {
 
       <button type="submit" disabled={loading} className="btn-primary w-full">
         {loading
-          ? "Please wait…"
+          ? t("auth.pleaseWait")
           : mode === "login"
-            ? "Sign in"
-            : "Create account"}
+            ? t("auth.signIn")
+            : t("auth.createAccountBtn")}
       </button>
 
       <p className="text-center text-sm text-[var(--muted-foreground)]">
         {mode === "login" ? (
           <>
-            No account yet?{" "}
-            <Link href="/register" className="text-[var(--accent)] underline-offset-2 hover:underline">
-              Register
+            {t("auth.noAccount")}{" "}
+            <Link
+              href="/register"
+              className="text-[var(--accent)] underline-offset-2 hover:underline"
+            >
+              {t("auth.register")}
             </Link>
           </>
         ) : (
           <>
-            Already have an account?{" "}
-            <Link href="/login" className="text-[var(--accent)] underline-offset-2 hover:underline">
-              Sign in
+            {t("auth.hasAccount")}{" "}
+            <Link
+              href="/login"
+              className="text-[var(--accent)] underline-offset-2 hover:underline"
+            >
+              {t("auth.signIn")}
             </Link>
           </>
         )}

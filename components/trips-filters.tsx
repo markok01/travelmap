@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useT } from "@/components/language-provider";
 import type { FamilyMember } from "@/lib/db/schema";
 
 export function TripsFilters({
@@ -16,6 +17,7 @@ export function TripsFilters({
     year?: string;
   };
 }) {
+  const t = useT();
   const router = useRouter();
 
   function update(key: string, value: string) {
@@ -37,11 +39,11 @@ export function TripsFilters({
     <div className="grid gap-3 sm:grid-cols-3">
       <label className="block space-y-1.5">
         <span className="text-xs font-medium uppercase tracking-[0.12em] text-[var(--muted-foreground)]">
-          Country code
+          {t("trips.countryCode")}
         </span>
         <input
           className="field"
-          placeholder="e.g. RS"
+          placeholder={t("trips.countryCodePlaceholder")}
           defaultValue={current.countryCode ?? ""}
           maxLength={2}
           onBlur={(e) => update("countryCode", e.target.value.trim())}
@@ -55,14 +57,14 @@ export function TripsFilters({
       </label>
       <label className="block space-y-1.5">
         <span className="text-xs font-medium uppercase tracking-[0.12em] text-[var(--muted-foreground)]">
-          Member
+          {t("common.member")}
         </span>
         <select
           className="field"
           value={current.memberId ?? ""}
           onChange={(e) => update("memberId", e.target.value)}
         >
-          <option value="">All members</option>
+          <option value="">{t("trips.allMembers")}</option>
           {members.map((m) => (
             <option key={m.id} value={m.id}>
               {m.displayName}
@@ -72,14 +74,14 @@ export function TripsFilters({
       </label>
       <label className="block space-y-1.5">
         <span className="text-xs font-medium uppercase tracking-[0.12em] text-[var(--muted-foreground)]">
-          Year
+          {t("common.year")}
         </span>
         <select
           className="field"
           value={current.year ?? ""}
           onChange={(e) => update("year", e.target.value)}
         >
-          <option value="">All years</option>
+          <option value="">{t("common.allYears")}</option>
           {years.map((year) => (
             <option key={year} value={String(year)}>
               {year}

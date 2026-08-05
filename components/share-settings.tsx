@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useT } from "@/components/language-provider";
 import {
   disableFamilyShareAction,
   enableFamilyShareAction,
@@ -14,6 +15,7 @@ export function ShareSettings({
   share: { token: string; enabled: boolean } | null;
   isOwner: boolean;
 }) {
+  const t = useT();
   const [pending, startTransition] = useTransition();
   const [token, setToken] = useState(share?.token ?? "");
   const [enabled, setEnabled] = useState(share?.enabled ?? false);
@@ -37,10 +39,10 @@ export function ShareSettings({
     <section className="settings-panel space-y-4">
       <div>
         <h2 className="settings-section-label text-sm font-medium uppercase tracking-[0.14em] text-[var(--muted-foreground)]">
-          Family share link
+          {t("settings.share")}
         </h2>
         <p className="mt-1 text-sm text-[var(--muted-foreground)]">
-          Share a read-only view of public trips with people you trust.
+          {t("settings.shareHint")}
         </p>
       </div>
 
@@ -48,9 +50,9 @@ export function ShareSettings({
         <>
           <div className="flex items-center justify-between gap-4 rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--background)] px-4 py-3">
             <div>
-              <p className="font-medium">Public share link</p>
+              <p className="font-medium">{t("settings.publicLink")}</p>
               <p className="text-sm text-[var(--muted-foreground)]">
-                {enabled ? "Enabled" : "Disabled"}
+                {enabled ? t("settings.enabled") : t("settings.disabled")}
               </p>
             </div>
             <button
@@ -89,13 +91,13 @@ export function ShareSettings({
             <div className="space-y-3 rounded-[var(--radius-lg)] bg-[var(--accent-soft)]/50 p-4">
               <label className="block space-y-1.5">
                 <span className="text-xs font-medium uppercase tracking-[0.12em] text-[var(--muted-foreground)]">
-                  Read-only link
+                  {t("settings.readOnlyLink")}
                 </span>
                 <input
                   className="field text-sm"
                   readOnly
                   value={link}
-                  placeholder="Preparing link…"
+                  placeholder={t("settings.preparingLink")}
                 />
               </label>
               <div className="flex flex-wrap gap-2">
@@ -105,7 +107,7 @@ export function ShareSettings({
                   disabled={!link}
                   onClick={() => navigator.clipboard.writeText(link)}
                 >
-                  Copy link
+                  {t("settings.copyLink")}
                 </button>
                 <button
                   type="button"
@@ -119,7 +121,7 @@ export function ShareSettings({
                     })
                   }
                 >
-                  Rotate link
+                  {t("settings.rotateLink")}
                 </button>
               </div>
             </div>
@@ -127,7 +129,7 @@ export function ShareSettings({
         </>
       ) : (
         <p className="text-sm text-[var(--muted-foreground)]">
-          Only the family owner can manage the share link.
+          {t("settings.shareOwnerOnly")}
         </p>
       )}
 

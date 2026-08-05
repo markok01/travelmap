@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState } from "react";
+import { useT } from "@/components/language-provider";
 import {
   addFamilyMemberAction,
   removeFamilyMemberAction,
@@ -11,14 +12,15 @@ import type { FamilyMember } from "@/lib/db/schema";
 const initialState: ActionState = {};
 
 export function FamilyMembersPanel({ members }: { members: FamilyMember[] }) {
+  const t = useT();
   return (
     <section className="settings-panel space-y-6">
       <div>
         <h2 className="settings-section-label text-sm font-medium uppercase tracking-[0.14em] text-[var(--muted-foreground)]">
-          Family members
+          {t("settings.members")}
         </h2>
         <p className="mt-1 text-sm text-[var(--muted-foreground)]">
-          See who is in the family, remove someone, or add them again.
+          {t("settings.membersHint")}
         </p>
       </div>
 
@@ -30,9 +32,9 @@ export function FamilyMembersPanel({ members }: { members: FamilyMember[] }) {
 
       <div className="space-y-3 border-t border-[var(--border)] pt-5">
         <div>
-          <h3 className="text-sm font-medium">Add member</h3>
+          <h3 className="text-sm font-medium">{t("settings.addMember")}</h3>
           <p className="mt-0.5 text-sm text-[var(--muted-foreground)]">
-            Invite placeholders for now — full invite emails later.
+            {t("settings.addMemberHint")}
           </p>
         </div>
         <AddMemberForm />
@@ -42,6 +44,7 @@ export function FamilyMembersPanel({ members }: { members: FamilyMember[] }) {
 }
 
 function MemberRow({ member }: { member: FamilyMember }) {
+  const t = useT();
   const [confirming, setConfirming] = useState(false);
   const [state, formAction, pending] = useActionState(
     removeFamilyMemberAction,
@@ -64,9 +67,9 @@ function MemberRow({ member }: { member: FamilyMember }) {
       <div className="min-w-0 flex-1">
         <p className="truncate font-medium">{member.displayName}</p>
         <p className="text-xs text-[var(--muted-foreground)]">
-          {isOwner ? "Owner" : "Member"}
+          {isOwner ? t("common.owner") : t("common.member")}
           {" · "}
-          {linked ? "Linked" : "Invite pending"}
+          {linked ? t("settings.linked") : t("settings.invitePending")}
           {member.inviteEmail ? ` · ${member.inviteEmail}` : ""}
         </p>
         {state.error ? (
@@ -76,20 +79,20 @@ function MemberRow({ member }: { member: FamilyMember }) {
 
       {isOwner ? (
         <span className="rounded-full border border-[var(--border)] px-2.5 py-1 text-xs text-[var(--muted-foreground)]">
-          Can&apos;t remove
+          {t("settings.cantRemove")}
         </span>
       ) : confirming ? (
         <form action={formAction} className="flex flex-wrap items-center gap-2">
           <input type="hidden" name="memberId" value={member.id} />
           <span className="text-xs text-[var(--muted-foreground)]">
-            Remove {member.displayName}?
+            {t("settings.removeConfirm", { name: member.displayName })}
           </span>
           <button
             type="submit"
             disabled={pending}
             className="rounded-full bg-[var(--danger)] px-3 py-1.5 text-xs font-medium text-white disabled:opacity-60"
           >
-            {pending ? "Removing…" : "Confirm"}
+            {pending ? t("settings.removing") : t("common.confirm")}
           </button>
           <button
             type="button"
@@ -97,7 +100,7 @@ function MemberRow({ member }: { member: FamilyMember }) {
             onClick={() => setConfirming(false)}
             disabled={pending}
           >
-            Cancel
+            {t("common.cancel")}
           </button>
         </form>
       ) : (
@@ -106,7 +109,7 @@ function MemberRow({ member }: { member: FamilyMember }) {
           className="rounded-full border border-[var(--border)] px-3 py-1.5 text-xs hover:bg-[color-mix(in_oklab,var(--muted)_50%,transparent)]"
           onClick={() => setConfirming(true)}
         >
-          Remove
+          {t("common.remove")}
         </button>
       )}
     </li>
@@ -114,6 +117,7 @@ function MemberRow({ member }: { member: FamilyMember }) {
 }
 
 function AddMemberForm() {
+  const t = useT();
   const formRef = useRef<HTMLFormElement>(null);
   const [state, formAction, pending] = useActionState(
     addFamilyMemberAction,
@@ -133,23 +137,23 @@ function AddMemberForm() {
           name="displayName"
           required
           className="field"
-          placeholder="Display name"
+          placeholder={t("settings.displayName")}
         />
         <input
           name="inviteEmail"
           type="email"
           className="field"
-          placeholder="Invite email (optional)"
+          placeholder={t("settings.inviteEmail")}
         />
       </div>
       {state.error ? (
         <p className="text-sm text-[var(--danger)]">{state.error}</p>
       ) : null}
       {state.success ? (
-        <p className="text-sm text-[var(--accent)]">Member added.</p>
+        <p className="text-sm text-[var(--accent)]">{t("settings.memberAdded")}</p>
       ) : null}
       <button type="submit" disabled={pending} className="btn-secondary">
-        {pending ? "Adding…" : "Add member"}
+        {pending ? t("settings.adding") : t("settings.addMember")}
       </button>
     </form>
   );

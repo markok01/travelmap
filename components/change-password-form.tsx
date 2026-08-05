@@ -3,8 +3,10 @@
 import { useState } from "react";
 import { notifyPasswordChangedAction } from "@/lib/actions/password";
 import { authClient } from "@/lib/auth-client";
+import { useT } from "@/components/language-provider";
 
 export function ChangePasswordForm() {
+  const t = useT();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -48,23 +50,25 @@ export function ChangePasswordForm() {
     setCurrentPassword("");
     setNewPassword("");
     setConfirm("");
-    setSuccess("Password updated.");
+    setSuccess(t("settings.passwordUpdated"));
   }
 
   return (
     <section className="settings-panel space-y-4">
       <div>
         <h2 className="settings-section-label text-sm font-medium uppercase tracking-[0.14em] text-[var(--muted-foreground)]">
-          Password
+          {t("settings.password")}
         </h2>
         <p className="mt-1 text-sm text-[var(--muted-foreground)]">
-          Change the password for your signed-in account.
+          {t("settings.passwordHint")}
         </p>
       </div>
 
       <form onSubmit={onSubmit} className="space-y-3">
         <label className="block space-y-1.5">
-          <span className="text-sm font-medium">Current password</span>
+          <span className="text-sm font-medium">
+            {t("settings.currentPassword")}
+          </span>
           <input
             required
             type="password"
@@ -77,7 +81,7 @@ export function ChangePasswordForm() {
         </label>
 
         <label className="block space-y-1.5">
-          <span className="text-sm font-medium">New password</span>
+          <span className="text-sm font-medium">{t("settings.newPassword")}</span>
           <input
             required
             type="password"
@@ -91,7 +95,9 @@ export function ChangePasswordForm() {
         </label>
 
         <label className="block space-y-1.5">
-          <span className="text-sm font-medium">Confirm new password</span>
+          <span className="text-sm font-medium">
+            {t("settings.confirmPassword")}
+          </span>
           <input
             required
             type="password"
@@ -116,7 +122,7 @@ export function ChangePasswordForm() {
         ) : null}
 
         <button type="submit" disabled={loading} className="btn-secondary">
-          {loading ? "Updating…" : "Update password"}
+          {loading ? t("common.saving") : t("settings.updatePassword")}
         </button>
       </form>
     </section>

@@ -1,7 +1,7 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getFamilyForUser } from "@/lib/actions/family";
 import { EditTripForm } from "@/components/trip-form-wrappers";
+import { EditTripPageHeader } from "@/components/edit-trip-page-header";
 import { getCountries } from "@/lib/countries/queries";
 import { getSession } from "@/lib/session";
 import { getTripById } from "@/lib/trips/queries";
@@ -37,19 +37,10 @@ export default async function EditTripPage({
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <p className="text-sm uppercase tracking-[0.18em] text-[var(--muted-foreground)]">
-            Edit
-          </p>
-          <h1 className="mt-1 font-[family-name:var(--font-display)] text-3xl font-semibold tracking-tight">
-            {trip.title?.trim() || trip.country.name}
-          </h1>
-        </div>
-        <Link href={`/trips/${trip.id}`} className="btn-secondary">
-          Cancel
-        </Link>
-      </div>
+      <EditTripPageHeader
+        tripId={trip.id}
+        title={trip.title?.trim() || trip.country.name}
+      />
 
       <EditTripForm
         countries={countries}
@@ -76,8 +67,27 @@ export default async function EditTripPage({
                   name: p.name,
                   type: p.type,
                   notes: p.notes ?? "",
+                  latitude: p.latitude,
+                  longitude: p.longitude,
+                  countryCode: p.countryCode,
+                  pinned:
+                    p.latitude != null &&
+                    p.longitude != null &&
+                    Number.isFinite(p.latitude) &&
+                    Number.isFinite(p.longitude),
                 }))
-              : [{ key: "empty", name: "", type: "city", notes: "" }],
+              : [
+                  {
+                    key: "empty",
+                    name: "",
+                    type: "city",
+                    notes: "",
+                    latitude: null,
+                    longitude: null,
+                    countryCode: null,
+                    pinned: false,
+                  },
+                ],
         }}
       />
     </div>

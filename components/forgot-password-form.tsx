@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useT } from "@/components/language-provider";
 import { authClient } from "@/lib/auth-client";
 
 export function ForgotPasswordForm() {
+  const t = useT();
   const [email, setEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
@@ -16,7 +18,7 @@ export function ForgotPasswordForm() {
     setError(null);
 
     if (Date.now() < cooldownUntil) {
-      setError("Please wait a moment before requesting another email.");
+      setError(t("auth.cooldownWait"));
       return;
     }
 
@@ -29,7 +31,7 @@ export function ForgotPasswordForm() {
     setLoading(false);
 
     if (resetError) {
-      setError(resetError.message ?? "Could not send reset email.");
+      setError(resetError.message ?? t("auth.resetEmailError"));
       return;
     }
 
@@ -42,26 +44,25 @@ export function ForgotPasswordForm() {
       <div className="mx-auto w-full max-w-md space-y-5 text-center">
         <div className="space-y-2">
           <h1 className="font-[family-name:var(--font-display)] text-3xl font-semibold tracking-tight">
-            Check your email
+            {t("auth.checkEmail")}
           </h1>
           <p className="text-sm text-[var(--muted-foreground)]">
-            If an account exists for that address, we sent a password reset
-            link. It expires in about an hour.
+            {t("auth.checkEmailHint")}
           </p>
         </div>
         <p className="text-sm text-[var(--muted-foreground)]">
-          Didn’t get it? Check spam, or{" "}
+          {t("auth.resendHint")}{" "}
           <button
             type="button"
             className="text-[var(--accent)] underline-offset-2 hover:underline"
             onClick={() => setSent(false)}
           >
-            try again
+            {t("auth.tryAgain")}
           </button>
           .
         </p>
         <Link href="/login" className="btn-secondary inline-flex">
-          Back to sign in
+          {t("auth.backToSignIn")}
         </Link>
       </div>
     );
@@ -71,22 +72,22 @@ export function ForgotPasswordForm() {
     <form onSubmit={onSubmit} className="mx-auto w-full max-w-md space-y-5">
       <div className="space-y-2 text-center">
         <h1 className="font-[family-name:var(--font-display)] text-3xl font-semibold tracking-tight">
-          Forgot password
+          {t("auth.forgotTitle")}
         </h1>
         <p className="text-sm text-[var(--muted-foreground)]">
-          Enter your email and we’ll send a reset link if an account exists.
+          {t("auth.forgotSubtitle")}
         </p>
       </div>
 
       <label className="block space-y-1.5">
-        <span className="text-sm font-medium">Email</span>
+        <span className="text-sm font-medium">{t("auth.email")}</span>
         <input
           required
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           className="field"
-          placeholder="you@example.com"
+          placeholder={t("auth.emailPlaceholder")}
           autoComplete="email"
         />
       </label>
@@ -98,7 +99,7 @@ export function ForgotPasswordForm() {
       ) : null}
 
       <button type="submit" disabled={loading} className="btn-primary w-full">
-        {loading ? "Sending…" : "Send reset link"}
+        {loading ? t("auth.sending") : t("auth.sendReset")}
       </button>
 
       <p className="text-center text-sm text-[var(--muted-foreground)]">
@@ -106,7 +107,7 @@ export function ForgotPasswordForm() {
           href="/login"
           className="text-[var(--accent)] underline-offset-2 hover:underline"
         >
-          Back to sign in
+          {t("auth.backToSignIn")}
         </Link>
       </p>
     </form>

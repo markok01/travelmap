@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useT } from "@/components/language-provider";
 import { formatTripDates, tripDurationDays } from "@/lib/trips/dates";
 import type { TripWithDetails } from "@/lib/trips/queries";
 
@@ -9,6 +12,7 @@ export function TripCard({
   trip: TripWithDetails;
   featured?: boolean;
 }) {
+  const t = useT();
   const days = tripDurationDays(trip.startDate, trip.endDate);
   const title = trip.title?.trim() || trip.country.name;
   const tripCountries = [
@@ -37,7 +41,9 @@ export function TripCard({
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h3 className="truncate font-medium">{title}</h3>
             <span className="shrink-0 text-xs text-[var(--muted-foreground)]">
-              {days} day{days === 1 ? "" : "s"}
+              {days === 1
+                ? t("common.dayCount", { count: days })
+                : t("common.daysCount", { count: days })}
             </span>
           </div>
           <p className="mt-0.5 text-sm text-[var(--muted-foreground)]">

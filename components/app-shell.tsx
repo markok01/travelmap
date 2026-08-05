@@ -5,17 +5,18 @@ import { usePathname } from "next/navigation";
 import { useEffect, useId, useState, type CSSProperties } from "react";
 import { BrandMark } from "@/components/brand-mark";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { useT } from "@/components/language-provider";
 import { useTheme } from "@/components/theme-provider";
 import { signOut } from "@/lib/auth-client";
 
 const NAV = [
-  { href: "/dashboard", label: "Home" },
-  { href: "/map", label: "Map" },
-  { href: "/trips", label: "Trips" },
-  { href: "/timeline", label: "Timeline" },
-  { href: "/countries", label: "Countries" },
-  { href: "/stats", label: "Stats" },
-  { href: "/settings", label: "Settings" },
+  { href: "/dashboard", labelKey: "nav.home" },
+  { href: "/map", labelKey: "nav.map" },
+  { href: "/trips", labelKey: "nav.trips" },
+  { href: "/timeline", labelKey: "nav.timeline" },
+  { href: "/countries", labelKey: "nav.countries" },
+  { href: "/stats", labelKey: "nav.stats" },
+  { href: "/settings", labelKey: "nav.settings" },
 ] as const;
 
 function isActivePath(pathname: string, href: string) {
@@ -27,16 +28,20 @@ function HamburgerButton({
   open,
   onToggle,
   controlsId,
+  openLabel,
+  closeLabel,
 }: {
   open: boolean;
   onToggle: () => void;
   controlsId: string;
+  openLabel: string;
+  closeLabel: string;
 }) {
   return (
     <button
       type="button"
       className="mobile-menu-toggle"
-      aria-label={open ? "Close menu" : "Open menu"}
+      aria-label={open ? closeLabel : openLabel}
       aria-expanded={open}
       aria-controls={controlsId}
       onClick={onToggle}
@@ -59,6 +64,7 @@ export function AppShell({
 }) {
   const pathname = usePathname();
   const { design } = useTheme();
+  const t = useT();
   const isMinimal = design === "minimal";
   const isMapRoute = pathname === "/map" || pathname.startsWith("/map/");
   const flushMap = isMapRoute;
@@ -118,7 +124,7 @@ export function AppShell({
             className={navLinkClass(active)}
             onClick={() => setMenuOpen(false)}
           >
-            {item.label}
+            {t(item.labelKey)}
           </Link>
         );
       })}
@@ -151,7 +157,7 @@ export function AppShell({
           }
           className={signOutButtonClass()}
         >
-          Sign out
+          {t("nav.signOut")}
         </button>
       </div>
     </div>
@@ -187,6 +193,8 @@ export function AppShell({
                 open={menuOpen}
                 onToggle={() => setMenuOpen((v) => !v)}
                 controlsId={menuId}
+                openLabel={t("nav.openMenu")}
+                closeLabel={t("nav.closeMenu")}
               />
             </div>
           </header>
@@ -196,10 +204,10 @@ export function AppShell({
           <main
             className={
               flushMap
-                ? "mt-3 flex min-h-0 flex-1 flex-col bg-transparent p-0 shadow-none md:mt-0"
+                ? "mt-3 flex min-h-0 min-w-0 flex-1 flex-col bg-transparent p-0 shadow-none md:mt-0"
                 : isMinimal
-                  ? "shell-main mt-3 flex-1 p-5 md:mt-0 md:p-7"
-                  : `mt-3 flex-1 p-5 md:mt-0 md:p-8 ${atlasPanel}`
+                  ? "shell-main mt-3 min-w-0 flex-1 overflow-x-hidden p-5 md:mt-0 md:p-7"
+                  : `mt-3 min-w-0 flex-1 overflow-x-hidden p-5 md:mt-0 md:p-8 ${atlasPanel}`
             }
           >
             {children}
@@ -226,7 +234,7 @@ export function AppShell({
           }`}
           role="dialog"
           aria-modal="true"
-          aria-label="Navigation"
+          aria-label={t("nav.navigation")}
         >
           <div className="flex items-center justify-between gap-3 px-1 pb-2">
             <BrandMark href="/dashboard" size="sm" />
@@ -234,6 +242,8 @@ export function AppShell({
               open={menuOpen}
               onToggle={() => setMenuOpen(false)}
               controlsId={menuId}
+              openLabel={t("nav.openMenu")}
+              closeLabel={t("nav.closeMenu")}
             />
           </div>
           <nav className="mobile-menu-nav mt-6 flex flex-1 flex-col gap-1">
@@ -249,7 +259,7 @@ export function AppShell({
                   tabIndex={menuOpen ? 0 : -1}
                   onClick={() => setMenuOpen(false)}
                 >
-                  {item.label}
+                  {t(item.labelKey)}
                 </Link>
               );
             })}

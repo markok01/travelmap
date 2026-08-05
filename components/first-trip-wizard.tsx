@@ -1,6 +1,12 @@
 "use client";
 
-import { useMemo, useRef, useState, useActionState } from "react";
+import { useMemo, useRef, useState, useActionState, startTransition } from "react";
+import { DateRangePicker } from "@/components/date-range-picker";
+import { useT } from "@/components/language-provider";
+import {
+  PlaceAutocomplete,
+  type PlaceLocationValue,
+} from "@/components/place-autocomplete";
 import {
   createTripAction,
   type TripActionState,
@@ -9,6 +15,19 @@ import type { Country, FamilyMember } from "@/lib/db/schema";
 
 const initialState: TripActionState = {};
 const TOTAL_STEPS = 4;
+
+type WizardPlace = PlaceLocationValue & { key: string };
+
+function emptyPlace(): WizardPlace {
+  return {
+    key: crypto.randomUUID(),
+    name: "",
+    latitude: null,
+    longitude: null,
+    countryCode: null,
+    pinned: false,
+  };
+}
 
 export function FirstTripWizard({
   countries,
@@ -19,6 +38,7 @@ export function FirstTripWizard({
   members: FamilyMember[];
   defaultCountryCode?: string;
 }) {
+  const t = useT();
   const formRef = useRef<HTMLFormElement>(null);
   const [state, formAction, pending] = useActionState(
     createTripAction,
@@ -33,7 +53,7 @@ export function FirstTripWizard({
   const [participantIds, setParticipantIds] = useState<string[]>(
     members.filter((m) => m.userId).map((m) => m.id).slice(0, 1),
   );
-  const [placeName, setPlaceName] = useState("");
+  const [places, setPlaces] = useState<WizardPlace[]>([emptyPlace()]);
   const [title, setTitle] = useState("");
 
   const filteredCountries = useMemo(() => {
@@ -57,6 +77,12 @@ export function FirstTripWizard({
     );
   }
 
+  function updatePlace(index: number, next: PlaceLocationValue) {
+    setPlaces((prev) =>
+      prev.map((place, i) => (i === index ? { ...place, ...next } : place)),
+    );
+  }
+
   const canAdvance =
     (step === 1 && Boolean(countryCode)) ||
     (step === 2 && Boolean(startDate && endDate)) ||
@@ -77,7 +103,10 @@ export function FirstTripWizard({
   function saveTrip() {
     if (!formRef.current || pending) return;
     if (!countryCode || participantIds.length === 0) return;
-    formAction(new FormData(formRef.current));
+    const payload = new FormData(formRef.current);
+    startTransition(() => {
+      formAction(payload);
+    });
   }
 
   function blockEnterSubmit(e: React.KeyboardEvent<HTMLInputElement>) {
@@ -88,7 +117,7 @@ export function FirstTripWizard({
     <form
       ref={formRef}
       action={formAction}
-      className="space-y-6"
+      className="w-full min-w-0 max-w-full space-y-6"
       onSubmit={(e) => {
         // Block implicit submits (Enter in inputs). Saving is via Save button only.
         e.preventDefault();
@@ -98,15 +127,13 @@ export function FirstTripWizard({
       <input type="hidden" name="startDate" value={startDate} />
       <input type="hidden" name="endDate" value={endDate} />
       <input type="hidden" name="privacy" value="family" />
-      <input type="hidden" name="placeType" value="city" />
-      <input type="hidden" name="placeNotes" value="" />
       {participantIds.map((id) => (
         <input key={id} type="hidden" name="participantIds" value={id} />
       ))}
 
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm text-[var(--muted-foreground)]">
-          Step {step} of {TOTAL_STEPS}
+          {t("trips.wizardStep", { step, total: TOTAL_STEPS })}
         </p>
         <div className="flex gap-1.5" aria-hidden>
           {Array.from({ length: TOTAL_STEPS }, (_, i) => (
@@ -124,10 +151,10 @@ export function FirstTripWizard({
         <div className="space-y-3">
           <div>
             <h2 className="font-[family-name:var(--font-display)] text-xl font-semibold">
-              Where did you go?
+              {t("trips.whereTitle")}
             </h2>
             <p className="mt-1 text-sm text-[var(--muted-foreground)]">
-              Pick the country for this trip.
+              {t("trips.whereHint")}
             </p>
           </div>
           {selectedCountry ? (
@@ -144,7 +171,7 @@ export function FirstTripWizard({
                   setCountryQuery("");
                 }}
               >
-                Change
+                {t("common.change")}
               </button>
             </div>
           ) : (
@@ -154,8 +181,8 @@ export function FirstTripWizard({
                 onChange={(e) => setCountryQuery(e.target.value)}
                 onKeyDown={blockEnterSubmit}
                 className="field"
-                placeholder="Search countries…"
-                aria-label="Search countries"
+                placeholder={t("trips.searchCountriesShort")}
+                aria-label={t("trips.searchCountriesAria")}
               />
               <ul className="max-h-48 overflow-auto rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--background)]">
                 {filteredCountries.map((country) => (
@@ -178,7 +205,7 @@ export function FirstTripWizard({
                 ))}
                 {filteredCountries.length === 0 ? (
                   <li className="px-3 py-3 text-sm text-[var(--muted-foreground)]">
-                    No matches
+                    {t("common.noMatches")}
                   </li>
                 ) : null}
               </ul>
@@ -191,34 +218,22 @@ export function FirstTripWizard({
         <div className="space-y-3">
           <div>
             <h2 className="font-[family-name:var(--font-display)] text-xl font-semibold">
-              When was it?
+              {t("trips.whenTitle")}
             </h2>
             <p className="mt-1 text-sm text-[var(--muted-foreground)]">
-              Start and end dates for this journey.
+              {t("trips.whenHint")}
             </p>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <label className="block space-y-1.5">
-              <span className="text-sm font-medium">Start date</span>
-              <input
-                type="date"
-                className="field"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                onKeyDown={blockEnterSubmit}
-              />
-            </label>
-            <label className="block space-y-1.5">
-              <span className="text-sm font-medium">End date</span>
-              <input
-                type="date"
-                className="field"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                onKeyDown={blockEnterSubmit}
-              />
-            </label>
-          </div>
+          <DateRangePicker
+            inline
+            includeHiddenFields={false}
+            startDate={startDate}
+            endDate={endDate}
+            onChange={({ startDate: nextStart, endDate: nextEnd }) => {
+              setStartDate(nextStart);
+              setEndDate(nextEnd);
+            }}
+          />
         </div>
       ) : null}
 
@@ -226,10 +241,10 @@ export function FirstTripWizard({
         <div className="space-y-3">
           <div>
             <h2 className="font-[family-name:var(--font-display)] text-xl font-semibold">
-              Who went?
+              {t("trips.whoTitle")}
             </h2>
             <p className="mt-1 text-sm text-[var(--muted-foreground)]">
-              Select everyone who joined this trip.
+              {t("trips.whoHint")}
             </p>
           </div>
           <div className="grid gap-2 sm:grid-cols-2">
@@ -263,11 +278,10 @@ export function FirstTripWizard({
         <div className="space-y-3">
           <div>
             <h2 className="font-[family-name:var(--font-display)] text-xl font-semibold">
-              Name it & pin a city
+              {t("trips.detailsTitle")}
             </h2>
             <p className="mt-1 text-sm text-[var(--muted-foreground)]">
-              Give the trip a title, and optionally pin a city. You can add more
-              places later.
+              {t("trips.detailsHint")}
             </p>
           </div>
           {selectedCountry ? (
@@ -275,18 +289,20 @@ export function FirstTripWizard({
               {selectedCountry.flagEmoji} {selectedCountry.name} ·{" "}
               {startDate && endDate
                 ? `${startDate} → ${endDate}`
-                : "Dates set"}
+                : t("trips.datesSet")}
             </p>
           ) : null}
           <label className="block space-y-1.5">
-            <span className="text-sm font-medium">Trip title</span>
+            <span className="text-sm font-medium">{t("trips.tripTitle")}</span>
             <input
               name="title"
               className="field"
               placeholder={
                 selectedCountry
-                  ? `Summer in ${selectedCountry.name}`
-                  : "Summer getaway"
+                  ? t("trips.titlePlaceholderNamed", {
+                      name: selectedCountry.name,
+                    })
+                  : t("trips.titlePlaceholderFallback")
               }
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -294,19 +310,54 @@ export function FirstTripWizard({
               autoComplete="off"
             />
           </label>
-          <label className="block space-y-1.5">
-            <span className="text-sm font-medium">City or place (optional)</span>
-            <input
-              name="placeName"
-              className="field"
-              placeholder="Belgrade, Kyoto, Reykjavik…"
-              value={placeName}
-              onChange={(e) => setPlaceName(e.target.value)}
-              onKeyDown={blockEnterSubmit}
-              autoComplete="off"
-              enterKeyHint="done"
-            />
-          </label>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm font-medium">{t("trips.citiesPlaces")}</span>
+              <button
+                type="button"
+                className="text-sm text-[var(--accent)]"
+                onClick={() => setPlaces((prev) => [...prev, emptyPlace()])}
+              >
+                {t("trips.addCity")}
+              </button>
+            </div>
+            <div className="space-y-2">
+              {places.map((place, index) => (
+                <div
+                  key={place.key}
+                  className="flex gap-2 rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--background)] p-3"
+                >
+                  <div className="min-w-0 flex-1">
+                    <PlaceAutocomplete
+                      value={place}
+                      countryCodes={countryCode ? [countryCode] : []}
+                      placeholder={t("trips.placeSearchExamples")}
+                      onChange={(next) => updatePlace(index, next)}
+                      onKeyDown={blockEnterSubmit}
+                      enterKeyHint="done"
+                    />
+                    <input type="hidden" name="placeType" value="city" />
+                    <input type="hidden" name="placeNotes" value="" />
+                  </div>
+                  <button
+                    type="button"
+                    className="shrink-0 self-start rounded-[var(--radius-control)] px-2 py-2 text-sm text-[var(--danger)] hover:bg-[var(--muted)]"
+                    onClick={() =>
+                      setPlaces((prev) =>
+                        prev.length === 1
+                          ? [emptyPlace()]
+                          : prev.filter((_, i) => i !== index),
+                      )
+                    }
+                    aria-label={t("trips.removeCity")}
+                  >
+                    {t("common.remove")}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       ) : null}
 
@@ -319,7 +370,7 @@ export function FirstTripWizard({
       <div className="flex flex-wrap items-center gap-3 pt-2">
         {step > 1 ? (
           <button type="button" className="btn-secondary" onClick={goBack}>
-            Back
+            {t("common.back")}
           </button>
         ) : null}
         <div className="flex-1" />
@@ -330,7 +381,7 @@ export function FirstTripWizard({
             onClick={goNext}
             disabled={!canAdvance}
           >
-            Next
+            {t("common.next")}
           </button>
         ) : (
           <button
@@ -339,7 +390,7 @@ export function FirstTripWizard({
             onClick={saveTrip}
             disabled={pending || !countryCode || participantIds.length === 0}
           >
-            {pending ? "Saving…" : "Save trip"}
+            {pending ? t("common.saving") : t("trips.saveTrip")}
           </button>
         )}
       </div>

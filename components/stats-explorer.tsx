@@ -3,16 +3,26 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { EmptyState } from "@/components/empty-state";
+import { useT } from "@/components/language-provider";
 import {
   collectYearsFromTrips,
   computeStats,
-  scopeLegend,
   type FamilyStats,
   type StatsMember,
   type StatsScope,
   type StatsTrip,
 } from "@/lib/stats/compute";
 import { formatTripDates } from "@/lib/trips/dates";
+
+function scopeLabel(scope: StatsScope, t: ReturnType<typeof useT>) {
+  const keys = {
+    anyone: "stats.scopeAnyone",
+    individual: "stats.scopeIndividual",
+    couple: "stats.scopeCouple",
+    family: "stats.scopeFamily",
+  } as const;
+  return t(keys[scope]);
+}
 
 function StatCard({
   label,
@@ -77,12 +87,18 @@ function BarList({
   );
 }
 
-function Highlights({ stats }: { stats: FamilyStats }) {
+function Highlights({
+  stats,
+  t,
+}: {
+  stats: FamilyStats;
+  t: ReturnType<typeof useT>;
+}) {
   return (
     <div className="grid gap-3 md:grid-cols-2">
       <div className="rounded-3xl border border-[var(--border)] bg-[var(--background)] p-4">
         <p className="text-xs uppercase tracking-[0.14em] text-[var(--muted-foreground)]">
-          Top country
+          {t("stats.topCountry")}
         </p>
         <p className="mt-2 text-lg font-medium">
           {stats.topCountry
@@ -91,51 +107,57 @@ function Highlights({ stats }: { stats: FamilyStats }) {
         </p>
         {stats.topCountry ? (
           <p className="text-sm text-[var(--muted-foreground)]">
-            {stats.topCountry.count} visit
-            {stats.topCountry.count === 1 ? "" : "s"}
+            {stats.topCountry.count}{" "}
+            {stats.topCountry.count === 1
+              ? t("common.visit")
+              : t("common.visits")}
           </p>
         ) : null}
       </div>
       <div className="rounded-3xl border border-[var(--border)] bg-[var(--background)] p-4">
         <p className="text-xs uppercase tracking-[0.14em] text-[var(--muted-foreground)]">
-          Top city
+          {t("stats.topCity")}
         </p>
         <p className="mt-2 text-lg font-medium">
           {stats.topCity?.label ?? "—"}
         </p>
         {stats.topCity ? (
           <p className="text-sm text-[var(--muted-foreground)]">
-            {stats.topCity.count} visit
-            {stats.topCity.count === 1 ? "" : "s"}
+            {stats.topCity.count}{" "}
+            {stats.topCity.count === 1
+              ? t("common.visit")
+              : t("common.visits")}
           </p>
         ) : null}
       </div>
       <div className="rounded-3xl border border-[var(--border)] bg-[var(--background)] p-4">
         <p className="text-xs uppercase tracking-[0.14em] text-[var(--muted-foreground)]">
-          Top continent
+          {t("stats.topContinent")}
         </p>
         <p className="mt-2 text-lg font-medium">
           {stats.topContinent?.label ?? "—"}
         </p>
         {stats.topContinent ? (
           <p className="text-sm text-[var(--muted-foreground)]">
-            {stats.topContinent.count} trip
-            {stats.topContinent.count === 1 ? "" : "s"}
+            {stats.topContinent.count}{" "}
+            {stats.topContinent.count === 1
+              ? t("map.trip").toLowerCase()
+              : t("stats.trips").toLowerCase()}
           </p>
         ) : null}
       </div>
       <div className="rounded-3xl border border-[var(--border)] bg-[var(--background)] p-4">
         <p className="text-xs uppercase tracking-[0.14em] text-[var(--muted-foreground)]">
-          Longest / shortest
+          {t("stats.longestShortest")}
         </p>
         <p className="mt-2 text-sm">
-          <span className="font-medium">Longest:</span>{" "}
+          <span className="font-medium">{t("stats.longest")}</span>{" "}
           {stats.longestTrip
             ? `${stats.longestTrip.flagEmoji ?? ""} ${stats.longestTrip.title} (${stats.longestTrip.days}d)`.trim()
             : "—"}
         </p>
         <p className="mt-1 text-sm">
-          <span className="font-medium">Shortest:</span>{" "}
+          <span className="font-medium">{t("stats.shortest")}</span>{" "}
           {stats.shortestTrip
             ? `${stats.shortestTrip.flagEmoji ?? ""} ${stats.shortestTrip.title} (${stats.shortestTrip.days}d)`.trim()
             : "—"}
@@ -162,6 +184,7 @@ export function StatsExplorer({
   members: StatsMember[];
   catalogSize: number;
 }) {
+  const t = useT();
   const [scope, setScope] = useState<StatsScope>("anyone");
   const [memberId, setMemberId] = useState(members[0]?.id ?? "");
   const [coupleA, setCoupleA] = useState(members[0]?.id ?? "");
@@ -189,11 +212,11 @@ export function StatsExplorer({
     return (
       <div className="flex min-h-[50vh] items-center">
         <EmptyState
-          eyebrow="Statistics"
-          title="No trips to measure"
-          description="Add journeys and your coverage, days on the road, and favorites will appear here."
+          eyebrow={t("stats.title")}
+          title={t("stats.emptyTitle")}
+          description={t("stats.emptyDescription")}
           actionHref="/trips/new"
-          actionLabel="Add your first trip"
+          actionLabel={t("common.addFirstTrip")}
         />
       </div>
     );
@@ -204,27 +227,27 @@ export function StatsExplorer({
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="text-sm uppercase tracking-[0.18em] text-[var(--muted-foreground)]">
-            Insights
+            {t("stats.eyebrow")}
           </p>
           <h1 className="mt-1 font-[family-name:var(--font-display)] text-3xl font-semibold tracking-tight md:text-4xl">
-            Statistics
+            {t("stats.title")}
           </h1>
           <p className="mt-2 max-w-xl text-sm text-[var(--muted-foreground)]">
-            {scopeLegend(scope)}
+            {scopeLabel(scope, t)}
           </p>
         </div>
         <Link href="/map" className="btn-secondary">
-          See on map
+          {t("stats.seeOnMap")}
         </Link>
       </div>
 
       <div className="flex flex-wrap gap-2">
         {(
           [
-            ["anyone", "Anyone"],
-            ["individual", "Individual"],
-            ["couple", "Couple"],
-            ["family", "Whole family"],
+            ["anyone", t("common.anyone")],
+            ["individual", t("common.individual")],
+            ["couple", t("common.couple")],
+            ["family", t("common.wholeFamily")],
           ] as const
         ).map(([value, label]) => (
           <button
@@ -246,7 +269,7 @@ export function StatsExplorer({
         {scope === "individual" ? (
           <label className="block space-y-1.5">
             <span className="text-xs uppercase tracking-[0.12em] text-[var(--muted-foreground)]">
-              Member
+              {t("common.member")}
             </span>
             <select
               className="field"
@@ -266,7 +289,7 @@ export function StatsExplorer({
           <>
             <label className="block space-y-1.5">
               <span className="text-xs uppercase tracking-[0.12em] text-[var(--muted-foreground)]">
-                Member A
+                {t("common.memberA")}
               </span>
               <select
                 className="field"
@@ -282,7 +305,7 @@ export function StatsExplorer({
             </label>
             <label className="block space-y-1.5">
               <span className="text-xs uppercase tracking-[0.12em] text-[var(--muted-foreground)]">
-                Member B
+                {t("common.memberB")}
               </span>
               <select
                 className="field"
@@ -301,14 +324,14 @@ export function StatsExplorer({
 
         <label className="block space-y-1.5">
           <span className="text-xs uppercase tracking-[0.12em] text-[var(--muted-foreground)]">
-            Year
+            {t("common.year")}
           </span>
           <select
             className="field"
             value={year}
             onChange={(e) => setYear(e.target.value)}
           >
-            <option value="all">All years</option>
+            <option value="all">{t("common.allYears")}</option>
             {years.map((y) => (
               <option key={y} value={String(y)}>
                 {y}
@@ -320,75 +343,78 @@ export function StatsExplorer({
 
       {stats.tripCount === 0 ? (
         <div className="rounded-3xl border border-dashed border-[var(--border)] px-6 py-10 text-center text-[var(--muted-foreground)]">
-          No trips match this scope and year.
+          {t("stats.noMatch")}
         </div>
       ) : (
         <>
           <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <StatCard
-              label="Countries visited"
+              label={t("stats.countriesVisited")}
               value={String(stats.visitedCountries)}
               hint={`${stats.coveragePercent}% of ${stats.catalogSize}`}
             />
-            <StatCard label="Trips" value={String(stats.tripCount)} />
+            <StatCard label={t("stats.trips")} value={String(stats.tripCount)} />
             <StatCard
-              label="Days on the road"
+              label={t("stats.daysOnRoad")}
               value={String(stats.totalDays)}
               hint={
                 stats.averageTripDays != null
-                  ? `Avg ${stats.averageTripDays} days / trip`
+                  ? t("stats.avgDaysPerTrip", { days: stats.averageTripDays })
                   : undefined
               }
             />
             <StatCard
-              label="Trips / year"
+              label={t("stats.tripsPerYear")}
               value={
                 stats.averageTripsPerYear != null
                   ? String(stats.averageTripsPerYear)
                   : "—"
               }
-              hint={`${stats.uniqueDestinations} unique · ${stats.repeatVisits} repeats`}
+              hint={t("stats.uniqueRepeats", {
+                unique: stats.uniqueDestinations,
+                repeats: stats.repeatVisits,
+              })}
             />
           </section>
 
           <section className="space-y-3">
             <h2 className="text-sm font-medium uppercase tracking-[0.14em] text-[var(--muted-foreground)]">
-              Highlights
+              {t("stats.highlights")}
             </h2>
-            <Highlights stats={stats} />
+            <Highlights stats={stats} t={t} />
           </section>
 
           <section className="grid gap-6 lg:grid-cols-2">
             <div className="space-y-3 rounded-3xl border border-[var(--border)] bg-[var(--background)] p-5">
               <h2 className="text-sm font-medium uppercase tracking-[0.14em] text-[var(--muted-foreground)]">
-                Country visits
+                {t("stats.countryVisits")}
               </h2>
               <p className="text-xs text-[var(--muted-foreground)]">
-                How many trips touched each country (repeats count).
+                {t("stats.countryVisitsHint")}
               </p>
               <BarList
                 items={stats.countryVisits.map((row) => ({
                   label: `${row.meta ? `${row.meta} ` : ""}${row.label}`,
                   count: row.count,
                 }))}
-                emptyLabel="No countries in this scope."
-                countSuffix="visits"
+                emptyLabel={t("stats.noCountriesScope")}
+                countSuffix={t("common.visits")}
               />
             </div>
             <div className="space-y-3 rounded-3xl border border-[var(--border)] bg-[var(--background)] p-5">
               <h2 className="text-sm font-medium uppercase tracking-[0.14em] text-[var(--muted-foreground)]">
-                City visits
+                {t("stats.cityVisits")}
               </h2>
               <p className="text-xs text-[var(--muted-foreground)]">
-                Cities logged on trips — multiple trips to the same city stack.
+                {t("stats.cityVisitsHint")}
               </p>
               <BarList
                 items={stats.cityVisits.map((row) => ({
                   label: row.label,
                   count: row.count,
                 }))}
-                emptyLabel="No cities logged yet."
-                countSuffix="visits"
+                emptyLabel={t("stats.noCitiesLogged")}
+                countSuffix={t("common.visits")}
               />
             </div>
           </section>
@@ -396,40 +422,40 @@ export function StatsExplorer({
           <section className="grid gap-6 lg:grid-cols-2">
             <div className="space-y-3 rounded-3xl border border-[var(--border)] bg-[var(--background)] p-5">
               <h2 className="text-sm font-medium uppercase tracking-[0.14em] text-[var(--muted-foreground)]">
-                Countries by continent
+                {t("stats.byContinent")}
               </h2>
               <BarList
                 items={stats.countriesByContinent.map((row) => ({
                   label: row.continent,
                   count: row.count,
                 }))}
-                emptyLabel="No continents in this scope."
+                emptyLabel={t("stats.noContinentsScope")}
               />
             </div>
             <div className="space-y-3 rounded-3xl border border-[var(--border)] bg-[var(--background)] p-5">
               <h2 className="text-sm font-medium uppercase tracking-[0.14em] text-[var(--muted-foreground)]">
-                By season
+                {t("stats.bySeason")}
               </h2>
               <BarList
                 items={stats.bySeason.map((row) => ({
                   label: row.label,
                   count: row.count,
                 }))}
-                emptyLabel="No seasonal data."
+                emptyLabel={t("stats.noSeasonalData")}
               />
             </div>
           </section>
 
           <section className="space-y-3 rounded-3xl border border-[var(--border)] bg-[var(--background)] p-5">
             <h2 className="text-sm font-medium uppercase tracking-[0.14em] text-[var(--muted-foreground)]">
-              By month
+              {t("stats.byMonth")}
             </h2>
             <BarList
               items={stats.byMonth.map((row) => ({
                 label: row.label,
                 count: row.count,
               }))}
-              emptyLabel="No monthly data."
+              emptyLabel={t("stats.noMonthlyData")}
             />
           </section>
         </>

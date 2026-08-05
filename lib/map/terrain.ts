@@ -104,8 +104,47 @@ export function mapPinColor(
   theme: MapTheme,
   design: "atlas" | "minimal" = "atlas",
 ): string {
-  if (design === "minimal") return softPastelVisitColor(hex, theme);
-  return hex;
+  return mapPinPalette(hex, theme, design).accent;
+}
+
+/**
+ * High-contrast city pin palette so markers read clearly over visited countries.
+ * Cream core + saturated accent ring (not the same flat fill as the country).
+ */
+export function mapPinPalette(
+  hex: string,
+  theme: MapTheme,
+  design: "atlas" | "minimal" = "atlas",
+): {
+  accent: string;
+  core: string;
+  halo: string;
+  pulse: string;
+} {
+  const base =
+    design === "minimal" ? softPastelVisitColor(hex, theme) : punchVisitColor(hex);
+  const accent = pinAccentColor(base, theme);
+
+  return {
+    accent,
+    core: theme === "dark" ? "#F4EFE6" : "#FFFCF7",
+    halo:
+      theme === "dark" ? "rgba(8, 12, 14, 0.55)" : "rgba(255, 255, 255, 0.96)",
+    pulse: withAlpha(accent, theme === "dark" ? 0.55 : 0.4),
+  };
+}
+
+/** Push pin accent away from country fill — brighter ring that pops. */
+function pinAccentColor(hex: string, theme: MapTheme): string {
+  const hsl = hexToHsl(hex);
+  if (!hsl) return hex;
+  hsl.s = Math.min(0.95, hsl.s * 1.25 + 0.12);
+  if (theme === "light") {
+    hsl.l = Math.min(0.48, Math.max(0.32, hsl.l * 0.85));
+  } else {
+    hsl.l = Math.min(0.72, Math.max(0.55, hsl.l * 0.55 + 0.35));
+  }
+  return hslToHex(hsl);
 }
 
 /** Soft pastel visit tint for Minimal design (readable, not neon). */

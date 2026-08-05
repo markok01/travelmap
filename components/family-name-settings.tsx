@@ -5,6 +5,7 @@ import {
   updateFamilyNameAction,
   type ActionState,
 } from "@/lib/actions/family";
+import { useT } from "@/components/language-provider";
 
 const initialState: ActionState = {};
 
@@ -17,6 +18,7 @@ export function FamilyNameSettings({
   email: string;
   canEdit: boolean;
 }) {
+  const t = useT();
   const [state, formAction, pending] = useActionState(
     updateFamilyNameAction,
     initialState,
@@ -31,27 +33,25 @@ export function FamilyNameSettings({
   useEffect(() => {
     if (!state.success) return;
     setSavedFlash(true);
-    const t = setTimeout(() => setSavedFlash(false), 2000);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setSavedFlash(false), 2000);
+    return () => clearTimeout(timer);
   }, [state.success, state]);
 
   return (
     <section className="settings-panel space-y-4">
       <div>
         <h2 className="settings-section-label text-sm font-medium uppercase tracking-[0.14em] text-[var(--muted-foreground)]">
-          Family
+          {t("settings.family")}
         </h2>
         <p className="mt-1 text-sm text-[var(--muted-foreground)]">
-          {canEdit
-            ? "This name appears on your dashboard and shared atlas."
-            : "Signed in as a family member."}
+          {canEdit ? t("settings.familyHint") : t("settings.familyMemberHint")}
         </p>
       </div>
 
       {canEdit ? (
         <form action={formAction} className="space-y-3">
           <label className="block space-y-1.5">
-            <span className="text-sm font-medium">Family name</span>
+            <span className="text-sm font-medium">{t("settings.familyName")}</span>
             <input
               name="familyName"
               required
@@ -70,7 +70,7 @@ export function FamilyNameSettings({
             </p>
           ) : null}
           {savedFlash ? (
-            <p className="text-sm text-[var(--accent)]">Family name saved.</p>
+            <p className="text-sm text-[var(--accent)]">{t("settings.familySaved")}</p>
           ) : null}
 
           <button
@@ -78,7 +78,7 @@ export function FamilyNameSettings({
             className="btn-primary"
             disabled={pending || !value.trim() || value.trim() === name}
           >
-            {pending ? "Saving…" : "Save name"}
+            {pending ? t("common.saving") : t("settings.saveName")}
           </button>
         </form>
       ) : (
@@ -86,7 +86,7 @@ export function FamilyNameSettings({
       )}
 
       <p className="text-sm text-[var(--muted-foreground)]">
-        Signed in as {email}
+        {t("settings.signedInAs", { email })}
       </p>
     </section>
   );

@@ -1,14 +1,30 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { DateRangePicker } from "@/components/date-range-picker";
+import { useT } from "@/components/language-provider";
+import {
+  PlaceAutocomplete,
+  type PlaceLocationValue,
+} from "@/components/place-autocomplete";
 import type { Country, FamilyMember } from "@/lib/db/schema";
 import { PLACE_TYPES, TRIP_PRIVACY } from "@/lib/db/schema";
 
-type PlaceDraft = {
+type PlaceDraft = PlaceLocationValue & {
+  key: string;
+  type: string;
+  notes: string;
+};
+
+type PlaceDraftInput = {
   key: string;
   name: string;
   type: string;
   notes: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  countryCode?: string | null;
+  pinned?: boolean;
 };
 
 type TripFormValues = {
@@ -20,8 +36,21 @@ type TripFormValues = {
   notes: string;
   privacy: string;
   participantIds: string[];
-  places: PlaceDraft[];
+  places: PlaceDraftInput[];
 };
+
+function emptyPlace(): PlaceDraft {
+  return {
+    key: crypto.randomUUID(),
+    name: "",
+    type: "city",
+    notes: "",
+    latitude: null,
+    longitude: null,
+    countryCode: null,
+    pinned: false,
+  };
+}
 
 export function TripForm({
   action,
@@ -40,6 +69,7 @@ export function TripForm({
   error?: string;
   pending?: boolean;
 }) {
+  const t = useT();
   const [countryQuery, setCountryQuery] = useState("");
   const [countryCodes, setCountryCodes] = useState<string[]>(
     defaultValues?.countryCodes?.length
@@ -52,10 +82,27 @@ export function TripForm({
     defaultValues?.participantIds ??
       members.filter((m) => m.userId).map((m) => m.id).slice(0, 1),
   );
+  const [startDate, setStartDate] = useState(defaultValues?.startDate ?? "");
+  const [endDate, setEndDate] = useState(defaultValues?.endDate ?? "");
   const [places, setPlaces] = useState<PlaceDraft[]>(
     defaultValues?.places?.length
-      ? defaultValues.places
-      : [{ key: crypto.randomUUID(), name: "", type: "city", notes: "" }],
+      ? defaultValues.places.map((p) => ({
+          key: p.key,
+          name: p.name,
+          type: p.type,
+          notes: p.notes,
+          latitude: p.latitude ?? null,
+          longitude: p.longitude ?? null,
+          countryCode: p.countryCode ?? null,
+          pinned: Boolean(
+            p.pinned ??
+              (p.latitude != null &&
+                p.longitude != null &&
+                Number.isFinite(p.latitude) &&
+                Number.isFinite(p.longitude)),
+          ),
+        }))
+      : [emptyPlace()],
   );
 
   const filteredCountries = useMemo(() => {
@@ -88,8 +135,14 @@ export function TripForm({
     );
   }
 
+  function updatePlace(index: number, patch: Partial<PlaceDraft>) {
+    setPlaces((prev) =>
+      prev.map((p, i) => (i === index ? { ...p, ...patch } : p)),
+    );
+  }
+
   return (
-    <form action={action} className="space-y-6">
+    <form action={action} className="w-full min-w-0 max-w-full space-y-6">
       {defaultValues?.tripId ? (
         <input type="hidden" name="tripId" value={defaultValues.tripId} />
       ) : null}
@@ -104,17 +157,17 @@ export function TripForm({
       ))}
 
       <label className="block space-y-1.5">
-        <span className="text-sm font-medium">Title (optional)</span>
+        <span className="text-sm font-medium">{t("trips.formTitle")}</span>
         <input
           name="title"
           className="field"
-          placeholder="Summer in Serbia"
+          placeholder={t("trips.titlePlaceholder")}
           defaultValue={defaultValues?.title ?? ""}
         />
       </label>
 
       <div className="space-y-2">
-        <span className="text-sm font-medium">Countries</span>
+        <span className="text-sm font-medium">{t("trips.countries")}</span>
         {selectedCountries.length > 0 ? (
           <div className="flex flex-wrap gap-2">
             {selectedCountries.map((country, index) => (
@@ -126,7 +179,7 @@ export function TripForm({
                 {country.name}
                 {index === 0 ? (
                   <span className="text-xs text-[var(--muted-foreground)]">
-                    Primary
+                    {t("common.primary")}
                   </span>
                 ) : null}
                 <button
@@ -149,8 +202,8 @@ export function TripForm({
           value={countryQuery}
           onChange={(e) => setCountryQuery(e.target.value)}
           className="field"
-          placeholder="Search and add countries…"
-          aria-label="Search countries"
+          placeholder={t("trips.searchCountries")}
+          aria-label={t("trips.searchCountriesAria")}
         />
         <ul className="max-h-48 overflow-auto rounded-2xl border border-[var(--border)] bg-[var(--background)]">
           {filteredCountries.map((country) => {
@@ -166,7 +219,7 @@ export function TripForm({
                   <span>{country.flagEmoji}</span>
                   <span className="flex-1">{country.name}</span>
                   <span className="text-[var(--muted-foreground)]">
-                    {selected ? "Added" : country.code}
+                    {selected ? t("common.added") : country.code}
                   </span>
                 </button>
               </li>
@@ -174,37 +227,26 @@ export function TripForm({
           })}
           {filteredCountries.length === 0 ? (
             <li className="px-3 py-3 text-sm text-[var(--muted-foreground)]">
-              No matches
+              {t("common.noMatches")}
             </li>
           ) : null}
         </ul>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <label className="block space-y-1.5">
-          <span className="text-sm font-medium">Start date</span>
-          <input
-            type="date"
-            name="startDate"
-            required
-            className="field"
-            defaultValue={defaultValues?.startDate ?? ""}
-          />
-        </label>
-        <label className="block space-y-1.5">
-          <span className="text-sm font-medium">End date</span>
-          <input
-            type="date"
-            name="endDate"
-            required
-            className="field"
-            defaultValue={defaultValues?.endDate ?? ""}
-          />
-        </label>
+      <div className="space-y-1.5">
+        <span className="text-sm font-medium">{t("trips.tripDates")}</span>
+        <DateRangePicker
+          startDate={startDate}
+          endDate={endDate}
+          onChange={({ startDate: nextStart, endDate: nextEnd }) => {
+            setStartDate(nextStart);
+            setEndDate(nextEnd);
+          }}
+        />
       </div>
 
       <fieldset className="space-y-3">
-        <legend className="text-sm font-medium">Participants</legend>
+        <legend className="text-sm font-medium">{t("trips.participants")}</legend>
         <div className="grid gap-2 sm:grid-cols-2">
           {members.map((member) => {
             const checked = participantIds.includes(member.id);
@@ -239,23 +281,13 @@ export function TripForm({
 
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <span className="text-sm font-medium">Places</span>
+          <span className="text-sm font-medium">{t("trips.places")}</span>
           <button
             type="button"
             className="text-sm text-[var(--accent)]"
-            onClick={() =>
-              setPlaces((prev) => [
-                ...prev,
-                {
-                  key: crypto.randomUUID(),
-                  name: "",
-                  type: "city",
-                  notes: "",
-                },
-              ])
-            }
+            onClick={() => setPlaces((prev) => [...prev, emptyPlace()])}
           >
-            Add place
+            {t("trips.addPlace")}
           </button>
         </div>
         <div className="space-y-2">
@@ -264,30 +296,17 @@ export function TripForm({
               key={place.key}
               className="grid gap-2 rounded-2xl border border-[var(--border)] bg-[var(--background)] p-3 sm:grid-cols-[1fr_8rem_auto]"
             >
-              <input
-                name="placeName"
-                className="field"
-                placeholder="City, place, or landmark"
-                value={place.name}
-                onChange={(e) =>
-                  setPlaces((prev) =>
-                    prev.map((p, i) =>
-                      i === index ? { ...p, name: e.target.value } : p,
-                    ),
-                  )
-                }
+              <PlaceAutocomplete
+                value={place}
+                countryCodes={countryCodes}
+                placeholder={t("trips.placeSearch")}
+                onChange={(next) => updatePlace(index, next)}
               />
               <select
                 name="placeType"
                 className="field"
                 value={place.type}
-                onChange={(e) =>
-                  setPlaces((prev) =>
-                    prev.map((p, i) =>
-                      i === index ? { ...p, type: e.target.value } : p,
-                    ),
-                  )
-                }
+                onChange={(e) => updatePlace(index, { type: e.target.value })}
               >
                 {PLACE_TYPES.map((type) => (
                   <option key={type} value={type}>
@@ -301,12 +320,12 @@ export function TripForm({
                 onClick={() =>
                   setPlaces((prev) =>
                     prev.length === 1
-                      ? [{ key: crypto.randomUUID(), name: "", type: "city", notes: "" }]
+                      ? [emptyPlace()]
                       : prev.filter((_, i) => i !== index),
                   )
                 }
               >
-                Remove
+                {t("common.remove")}
               </button>
               <input type="hidden" name="placeNotes" value={place.notes} />
             </div>
@@ -315,18 +334,18 @@ export function TripForm({
       </div>
 
       <label className="block space-y-1.5">
-        <span className="text-sm font-medium">Notes</span>
+        <span className="text-sm font-medium">{t("trips.notes")}</span>
         <textarea
           name="notes"
           rows={4}
           className="field resize-y"
-          placeholder="Highlights, people we met, favorite meals…"
+          placeholder={t("trips.notesPlaceholder")}
           defaultValue={defaultValues?.notes ?? ""}
         />
       </label>
 
       <label className="block space-y-1.5">
-        <span className="text-sm font-medium">Privacy</span>
+        <span className="text-sm font-medium">{t("trips.privacy")}</span>
         <select
           name="privacy"
           className="field"
@@ -348,16 +367,16 @@ export function TripForm({
 
       {countryCodes.length === 0 ? (
         <p className="text-sm text-[var(--muted-foreground)]">
-          Select a country to enable saving.
+          {t("trips.selectCountry")}
         </p>
       ) : null}
 
       <button
         type="submit"
-        disabled={pending || countryCodes.length === 0}
+        disabled={pending || countryCodes.length === 0 || !startDate || !endDate}
         className="btn-primary"
       >
-        {pending ? "Saving…" : submitLabel}
+        {pending ? t("common.saving") : submitLabel}
       </button>
     </form>
   );

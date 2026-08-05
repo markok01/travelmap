@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import { useT } from "@/components/language-provider";
 import {
   addWishlistItemAction,
   removeWishlistItemAction,
@@ -21,6 +22,7 @@ export function WishlistPanel({
   countries: Country[];
   items: WishlistItem[];
 }) {
+  const t = useT();
   const [query, setQuery] = useState("");
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
@@ -45,7 +47,9 @@ export function WishlistPanel({
   function add(code: string) {
     startTransition(async () => {
       const result = await addWishlistItemAction(code);
-      setMessage(result.error ?? (result.success ? "Added to wishlist." : null));
+      setMessage(
+        result.error ?? (result.success ? t("settings.wishlistAdded") : null),
+      );
       if (result.success) setQuery("");
     });
   }
@@ -61,10 +65,10 @@ export function WishlistPanel({
     <section className="settings-panel space-y-4">
       <div>
         <h2 className="settings-section-label text-sm font-medium uppercase tracking-[0.14em] text-[var(--muted-foreground)]">
-          Wishlist
+          {t("settings.wishlist")}
         </h2>
         <p className="mt-1 text-sm text-[var(--muted-foreground)]">
-          Keep a gentle list of places your family hopes to explore next.
+          {t("settings.wishlistHint")}
         </p>
       </div>
 
@@ -73,8 +77,8 @@ export function WishlistPanel({
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           className="field"
-          placeholder="Search countries to add…"
-          aria-label="Search countries to add to wishlist"
+          placeholder={t("settings.wishlistSearch")}
+          aria-label={t("settings.wishlistSearch")}
         />
         <ul className="max-h-48 overflow-auto rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--background)]">
           {matches.map((country) => (
@@ -88,14 +92,16 @@ export function WishlistPanel({
                 <span className="text-base">{country.flagEmoji}</span>
                 <span className="flex-1">{country.name}</span>
                 <span className="text-xs text-[var(--muted-foreground)]">
-                  Add
+                  {t("common.add")}
                 </span>
               </button>
             </li>
           ))}
           {matches.length === 0 ? (
             <li className="px-3 py-3 text-sm text-[var(--muted-foreground)]">
-              {query ? "No countries match." : "All available countries are listed."}
+              {query
+                ? t("settings.wishlistNoMatch")
+                : t("settings.wishlistAllListed")}
             </li>
           ) : null}
         </ul>
@@ -103,7 +109,7 @@ export function WishlistPanel({
 
       {items.length === 0 ? (
         <p className="rounded-[var(--radius-lg)] border border-dashed border-[var(--border)] bg-[var(--accent-soft)]/40 px-4 py-5 text-sm text-[var(--muted-foreground)]">
-          Nothing saved yet. Add a country to begin planning.
+          {t("settings.wishlistEmpty")}
         </p>
       ) : (
         <ul className="settings-list divide-y divide-[var(--border)] rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--background)]">
@@ -124,7 +130,7 @@ export function WishlistPanel({
                 onClick={() => remove(item.id)}
                 className="rounded-[var(--radius-control)] px-2 py-1 text-sm text-[var(--danger)] hover:bg-[var(--danger-soft)] disabled:opacity-60"
               >
-                Remove
+                {t("common.remove")}
               </button>
             </li>
           ))}

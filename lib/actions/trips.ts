@@ -19,7 +19,10 @@ import {
 import { getSession } from "@/lib/session";
 import { isValidIsoDate } from "@/lib/trips/dates";
 import { getTripById } from "@/lib/trips/queries";
-import { geocodePlacesForCountry } from "@/lib/geo/geocode";
+import {
+  resolvePlaces,
+  type PlaceInput,
+} from "@/lib/geo/geocode";
 
 export type TripActionState = {
   error?: string;
@@ -30,12 +33,25 @@ function createId() {
   return crypto.randomUUID();
 }
 
-function parsePlaces(formData: FormData) {
+function parseOptionalCoord(value: FormDataEntryValue | undefined): number | null {
+  const raw = String(value ?? "").trim();
+  if (!raw) return null;
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return null;
+  return n;
+}
+
+function parsePlaces(formData: FormData): PlaceInput[] {
   const names = formData.getAll("placeName").map((v) => String(v).trim());
   const types = formData.getAll("placeType").map((v) => String(v).trim());
   const notes = formData.getAll("placeNotes").map((v) => String(v).trim());
+  const lats = formData.getAll("placeLat");
+  const lngs = formData.getAll("placeLng");
+  const placeCountries = formData
+    .getAll("placeCountryCode")
+    .map((v) => String(v).trim().toUpperCase());
 
-  const places: { name: string; type: PlaceType; notes: string | null }[] = [];
+  const places: PlaceInput[] = [];
 
   for (let i = 0; i < names.length; i++) {
     const name = names[i];
@@ -44,10 +60,24 @@ function parsePlaces(formData: FormData) {
     const type = PLACE_TYPES.includes(typeRaw as PlaceType)
       ? (typeRaw as PlaceType)
       : "city";
+    const latitude = parseOptionalCoord(lats[i]);
+    const longitude = parseOptionalCoord(lngs[i]);
+    const coordsOk =
+      latitude != null &&
+      longitude != null &&
+      latitude >= -90 &&
+      latitude <= 90 &&
+      longitude >= -180 &&
+      longitude <= 180;
+    const countryCode = placeCountries[i] || null;
+
     places.push({
       name,
       type,
       notes: notes[i] ? notes[i] : null,
+      latitude: coordsOk ? latitude : null,
+      longitude: coordsOk ? longitude : null,
+      countryCode,
     });
   }
 
@@ -218,12 +248,9 @@ export async function createTripAction(
   );
 
   if (input.places.length > 0) {
-    const geocoded = await geocodePlacesForCountry(
-      input.places,
-      input.countryCode,
-    );
+    const resolved = await resolvePlaces(input.places, input.countryCode);
     await db.insert(tripPlaces).values(
-      geocoded.map((place) => ({
+      resolved.map((place) => ({
         id: createId(),
         tripId,
         name: place.name,
@@ -299,12 +326,18 @@ export async function updateTripAction(
 
   await db.delete(tripPlaces).where(eq(tripPlaces.tripId, tripId));
   if (input.places.length > 0) {
-    const geocoded = await geocodePlacesForCountry(
+    const resolved = await resolvePlaces(
       input.places,
       input.countryCode,
+      existing.places.map((p) => ({
+        name: p.name,
+        latitude: p.latitude,
+        longitude: p.longitude,
+        countryCode: p.countryCode,
+      })),
     );
     await db.insert(tripPlaces).values(
-      geocoded.map((place) => ({
+      resolved.map((place) => ({
         id: createId(),
         tripId,
         name: place.name,

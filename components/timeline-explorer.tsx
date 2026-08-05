@@ -3,10 +3,10 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { EmptyState } from "@/components/empty-state";
+import { useLanguage, useT } from "@/components/language-provider";
 import {
   collectYearsFromTrips,
   filterTripsForScope,
-  scopeLegend,
   type StatsMember,
   type StatsScope,
   type StatsTrip,
@@ -21,7 +21,25 @@ import {
 
 type View = "timeline" | "year" | "calendar";
 
-const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const WEEKDAY_MON_KEYS = [
+  "mon",
+  "tue",
+  "wed",
+  "thu",
+  "fri",
+  "sat",
+  "sun",
+] as const;
+
+function scopeLabel(scope: StatsScope, t: ReturnType<typeof useT>) {
+  const keys = {
+    anyone: "stats.scopeAnyone",
+    individual: "stats.scopeIndividual",
+    couple: "stats.scopeCouple",
+    family: "stats.scopeFamily",
+  } as const;
+  return t(keys[scope]);
+}
 
 function ScopeFilters({
   scope,
@@ -52,15 +70,16 @@ function ScopeFilters({
   years: number[];
   showYear?: boolean;
 }) {
+  const t = useT();
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-2">
         {(
           [
-            ["anyone", "Anyone"],
-            ["individual", "Individual"],
-            ["couple", "Couple"],
-            ["family", "Whole family"],
+            ["anyone", t("common.anyone")],
+            ["individual", t("common.individual")],
+            ["couple", t("common.couple")],
+            ["family", t("common.wholeFamily")],
           ] as const
         ).map(([value, label]) => (
           <button
@@ -82,7 +101,7 @@ function ScopeFilters({
         {scope === "individual" ? (
           <label className="block space-y-1.5">
             <span className="text-xs uppercase tracking-[0.12em] text-[var(--muted-foreground)]">
-              Member
+              {t("common.member")}
             </span>
             <select
               className="field"
@@ -102,7 +121,7 @@ function ScopeFilters({
           <>
             <label className="block space-y-1.5">
               <span className="text-xs uppercase tracking-[0.12em] text-[var(--muted-foreground)]">
-                Member A
+                {t("common.memberA")}
               </span>
               <select
                 className="field"
@@ -118,7 +137,7 @@ function ScopeFilters({
             </label>
             <label className="block space-y-1.5">
               <span className="text-xs uppercase tracking-[0.12em] text-[var(--muted-foreground)]">
-                Member B
+                {t("common.memberB")}
               </span>
               <select
                 className="field"
@@ -138,14 +157,14 @@ function ScopeFilters({
         {showYear ? (
           <label className="block space-y-1.5">
             <span className="text-xs uppercase tracking-[0.12em] text-[var(--muted-foreground)]">
-              Year
+              {t("common.year")}
             </span>
             <select
               className="field"
               value={year}
               onChange={(e) => setYear(e.target.value)}
             >
-              <option value="all">All years</option>
+              <option value="all">{t("common.allYears")}</option>
               {years.map((y) => (
                 <option key={y} value={String(y)}>
                   {y}
@@ -221,6 +240,9 @@ export function TimelineExplorer({
   trips: StatsTrip[];
   members: StatsMember[];
 }) {
+  const t = useT();
+  const { locale } = useLanguage();
+  const localeTag = locale === "sr" ? "sr-Latn" : "en-US";
   const [view, setView] = useState<View>("timeline");
   const [scope, setScope] = useState<StatsScope>("anyone");
   const [memberId, setMemberId] = useState(members[0]?.id ?? "");
@@ -316,11 +338,11 @@ export function TimelineExplorer({
     return (
       <div className="flex min-h-[50vh] items-center">
         <EmptyState
-          eyebrow="Timeline"
-          title="No journeys yet"
-          description="Add trips to fill your timeline, year review, and travel calendar."
+          eyebrow={t("timeline.title")}
+          title={t("timeline.emptyTitle")}
+          description={t("timeline.emptyDescription")}
           actionHref="/trips/new"
-          actionLabel="Add your first trip"
+          actionLabel={t("common.addFirstTrip")}
         />
       </div>
     );
@@ -330,22 +352,22 @@ export function TimelineExplorer({
     <div className="space-y-6">
       <div>
         <p className="text-sm uppercase tracking-[0.18em] text-[var(--muted-foreground)]">
-          Chronology
+          {t("timeline.eyebrow")}
         </p>
         <h1 className="mt-1 font-[family-name:var(--font-display)] text-3xl font-semibold tracking-tight md:text-4xl">
-          Timeline
+          {t("timeline.title")}
         </h1>
         <p className="mt-2 text-sm text-[var(--muted-foreground)]">
-          {scopeLegend(scope)}
+          {scopeLabel(scope, t)}
         </p>
       </div>
 
       <div className="flex flex-wrap gap-2">
         {(
           [
-            ["timeline", "Timeline"],
-            ["year", "Year"],
-            ["calendar", "Calendar"],
+            ["timeline", t("timeline.viewTimeline")],
+            ["year", t("timeline.viewYear")],
+            ["calendar", t("timeline.viewCalendar")],
           ] as const
         ).map(([value, label]) => (
           <button
@@ -389,13 +411,15 @@ export function TimelineExplorer({
                 setOrder((o) => (o === "newest" ? "oldest" : "newest"))
               }
             >
-              {order === "newest" ? "Newest first" : "Oldest first"}
+              {order === "newest"
+                ? t("timeline.newestFirst")
+                : t("timeline.oldestFirst")}
             </button>
           </div>
 
           {yearGroups.length === 0 ? (
             <p className="rounded-3xl border border-dashed border-[var(--border)] px-6 py-10 text-center text-[var(--muted-foreground)]">
-              No trips match this filter.
+              {t("timeline.noMatch")}
             </p>
           ) : (
             yearGroups.map((group) => (
@@ -420,7 +444,7 @@ export function TimelineExplorer({
         <div className="space-y-6">
           <label className="block max-w-xs space-y-1.5">
             <span className="text-xs uppercase tracking-[0.12em] text-[var(--muted-foreground)]">
-              Overview year
+              {t("timeline.overviewYear")}
             </span>
             <select
               className="field"
@@ -438,7 +462,7 @@ export function TimelineExplorer({
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div className="rounded-3xl border border-[var(--border)] bg-[var(--background)] p-4">
               <p className="text-xs uppercase tracking-[0.14em] text-[var(--muted-foreground)]">
-                Trips
+                {t("timeline.tripsLabel")}
               </p>
               <p className="mt-2 font-[family-name:var(--font-display)] text-3xl font-semibold">
                 {overview.tripCount}
@@ -446,7 +470,7 @@ export function TimelineExplorer({
             </div>
             <div className="rounded-3xl border border-[var(--border)] bg-[var(--background)] p-4">
               <p className="text-xs uppercase tracking-[0.14em] text-[var(--muted-foreground)]">
-                Countries
+                {t("timeline.countriesLabel")}
               </p>
               <p className="mt-2 font-[family-name:var(--font-display)] text-3xl font-semibold">
                 {overview.countryCount}
@@ -454,7 +478,7 @@ export function TimelineExplorer({
             </div>
             <div className="rounded-3xl border border-[var(--border)] bg-[var(--background)] p-4">
               <p className="text-xs uppercase tracking-[0.14em] text-[var(--muted-foreground)]">
-                Days
+                {t("timeline.daysLabel")}
               </p>
               <p className="mt-2 font-[family-name:var(--font-display)] text-3xl font-semibold">
                 {overview.totalDays}
@@ -462,7 +486,7 @@ export function TimelineExplorer({
             </div>
             <div className="rounded-3xl border border-[var(--border)] bg-[var(--background)] p-4">
               <p className="text-xs uppercase tracking-[0.14em] text-[var(--muted-foreground)]">
-                Top country
+                {t("stats.topCountry")}
               </p>
               <p className="mt-2 text-lg font-medium">
                 {overview.topCountry
@@ -474,14 +498,14 @@ export function TimelineExplorer({
 
           {overview.longestTrip ? (
             <p className="text-sm text-[var(--muted-foreground)]">
-              Longest: {overview.longestTrip.flagEmoji}{" "}
+              {t("stats.longest")} {overview.longestTrip.flagEmoji}{" "}
               {overview.longestTrip.title} ({overview.longestTrip.days}d)
             </p>
           ) : null}
 
           <div className="rounded-3xl border border-[var(--border)] bg-[var(--background)] p-5">
             <h2 className="text-sm font-medium uppercase tracking-[0.14em] text-[var(--muted-foreground)]">
-              Month strip
+              {t("timeline.monthStrip")}
             </h2>
             <div className="mt-4 grid grid-cols-4 gap-2 sm:grid-cols-6 md:grid-cols-12">
               {overview.byMonth.map((m) => (
@@ -516,11 +540,11 @@ export function TimelineExplorer({
               className="btn-secondary !px-3 !py-2"
               onClick={() => shiftMonth(-1)}
             >
-              Prev
+              {t("timeline.prev")}
             </button>
             <h2 className="font-[family-name:var(--font-display)] text-xl font-semibold">
               {new Date(Date.UTC(calYear, calMonth - 1, 1)).toLocaleString(
-                "en-US",
+                localeTag,
                 { month: "long", year: "numeric", timeZone: "UTC" },
               )}
             </h2>
@@ -529,14 +553,14 @@ export function TimelineExplorer({
               className="btn-secondary !px-3 !py-2"
               onClick={() => shiftMonth(1)}
             >
-              Next
+              {t("timeline.next")}
             </button>
           </div>
 
           <div className="grid grid-cols-7 gap-1 text-center text-xs text-[var(--muted-foreground)]">
-            {WEEKDAYS.map((d) => (
-              <div key={d} className="py-2">
-                {d}
+            {WEEKDAY_MON_KEYS.map((key) => (
+              <div key={key} className="py-2">
+                {t(`dates.weekdaysMon.${key}`)}
               </div>
             ))}
           </div>
@@ -600,7 +624,7 @@ export function TimelineExplorer({
               </p>
               {selectedTrips.length === 0 ? (
                 <p className="mt-2 text-sm text-[var(--muted-foreground)]">
-                  No travel on this day.
+                  {t("timeline.noTravelDay")}
                 </p>
               ) : (
                 <ul className="mt-3 space-y-2">
@@ -625,7 +649,7 @@ export function TimelineExplorer({
             </div>
           ) : (
             <p className="text-sm text-[var(--muted-foreground)]">
-              Tap a day to see trips on the road.
+              {t("timeline.tapDay")}
             </p>
           )}
         </div>

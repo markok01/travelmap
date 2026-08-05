@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { useT } from "@/components/language-provider";
 import {
   createFamilyAction,
   type ActionState,
@@ -9,6 +10,7 @@ import {
 const initialState: ActionState = {};
 
 export function OnboardingForm({ defaultName }: { defaultName: string }) {
+  const t = useT();
   const [state, formAction, pending] = useActionState(
     createFamilyAction,
     initialState,
@@ -18,27 +20,26 @@ export function OnboardingForm({ defaultName }: { defaultName: string }) {
     <form action={formAction} className="mx-auto w-full max-w-lg space-y-6">
       <div className="space-y-2">
         <h1 className="font-[family-name:var(--font-display)] text-3xl font-semibold tracking-tight">
-          Create your family atlas
+          {t("auth.onboardingTitle")}
         </h1>
         <p className="text-sm text-[var(--muted-foreground)]">
-          Add your household now. Extra members can be invites for later — no
-          account required yet.
+          {t("auth.onboardingSubtitle")}
         </p>
       </div>
 
       <label className="block space-y-1.5">
-        <span className="text-sm font-medium">Family name</span>
+        <span className="text-sm font-medium">{t("auth.familyName")}</span>
         <input
           name="familyName"
           required
           className="field"
-          placeholder="Rivera Family"
+          placeholder={t("auth.familyNamePlaceholder")}
           defaultValue={`${defaultName.split(" ").slice(-1)[0] ?? "Our"} Family`}
         />
       </label>
 
       <label className="block space-y-1.5">
-        <span className="text-sm font-medium">Your display name</span>
+        <span className="text-sm font-medium">{t("auth.displayName")}</span>
         <input
           name="displayName"
           required
@@ -49,9 +50,9 @@ export function OnboardingForm({ defaultName }: { defaultName: string }) {
 
       <div className="space-y-3 rounded-3xl border border-[var(--border)] bg-[var(--muted)]/40 p-4">
         <div>
-          <p className="text-sm font-medium">Invite members (optional)</p>
+          <p className="text-sm font-medium">{t("auth.inviteMembers")}</p>
           <p className="text-xs text-[var(--muted-foreground)]">
-            Placeholder invites — they get a color on the map later.
+            {t("auth.inviteHint")}
           </p>
         </div>
         {[1, 2, 3].map((i) => (
@@ -59,13 +60,13 @@ export function OnboardingForm({ defaultName }: { defaultName: string }) {
             <input
               name={`memberName${i}`}
               className="field"
-              placeholder={`Member ${i} name`}
+              placeholder={t("auth.memberNamePlaceholder", { n: i })}
             />
             <input
               name={`memberEmail${i}`}
               type="email"
               className="field"
-              placeholder="Email (optional)"
+              placeholder={t("auth.emailOptional")}
             />
           </div>
         ))}
@@ -78,7 +79,7 @@ export function OnboardingForm({ defaultName }: { defaultName: string }) {
       ) : null}
 
       <button type="submit" disabled={pending} className="btn-primary w-full">
-        {pending ? "Creating…" : "Create family account"}
+        {pending ? t("auth.creating") : t("auth.createFamily")}
       </button>
     </form>
   );

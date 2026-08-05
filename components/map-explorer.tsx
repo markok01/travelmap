@@ -7,6 +7,8 @@ import {
   type MapSelection,
 } from "@/components/map-detail-panel";
 import { EmptyState } from "@/components/empty-state";
+import { useT } from "@/components/language-provider";
+import { OfflineSnapshotSaver } from "@/components/offline-snapshot-saver";
 import { useTheme } from "@/components/theme-provider";
 import {
   WorldMapCanvas,
@@ -16,7 +18,6 @@ import type { Country } from "@/lib/db/schema";
 import {
   countColoredCountries,
   getMapColorByCountry,
-  modeLegendLabel,
   type FamilyVisitMap,
   type MapViewMode,
 } from "@/lib/map/colors";
@@ -27,21 +28,37 @@ import {
   TERRAIN,
   type MapVisualStyle,
 } from "@/lib/map/terrain";
+import {
+  detectCoarsePointer,
+  MAP_CITIES_HINT_KEY,
+} from "@/lib/map/pointer";
+
+function GlobeLoading() {
+  const t = useT();
+  return (
+    <div className="flex h-full min-h-[52vh] items-center justify-center text-sm text-[var(--muted-foreground)]">
+      {t("map.loadingGlobe")}
+    </div>
+  );
+}
 
 const GlobeCanvas = dynamic(
   () =>
     import("@/components/globe-canvas").then((mod) => mod.GlobeCanvas),
   {
     ssr: false,
-    loading: () => (
-      <div className="flex h-full min-h-[52vh] items-center justify-center text-sm text-[var(--muted-foreground)]">
-        Loading globe…
-      </div>
-    ),
+    loading: () => <GlobeLoading />,
   },
 );
 
 type MapKind = "2d" | "3d";
+
+const MODE_LEGEND_KEYS: Record<MapViewMode, string> = {
+  anyone: "map.modeAnyone",
+  individual: "map.modeIndividual",
+  couple: "map.modeCouple",
+  family: "map.modeFamily",
+};
 
 type SearchHit =
   | { kind: "country"; country: Country }
@@ -108,6 +125,7 @@ export function MapExplorer({
   initialTripId?: string;
 }) {
   const { theme, design } = useTheme();
+  const t = useT();
   const isMinimal = design === "minimal";
   const flushMap = true;
   const initialTrip = initialTripId
@@ -155,12 +173,27 @@ export function MapExplorer({
         ? { kind: "country", code: initialCountryCode }
         : null,
   );
+  const [showCitiesHint, setShowCitiesHint] = useState(false);
 
   useEffect(() => {
     try {
       // Hydrate the persisted visual preference after the client mounts.
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setMapStyle(parseMapStyle(localStorage.getItem(MAP_STYLE_STORAGE_KEY)));
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      if (
+        detectCoarsePointer() &&
+        !window.localStorage.getItem(MAP_CITIES_HINT_KEY)
+      ) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setShowCitiesHint(true);
+      }
     } catch {
       /* ignore */
     }
@@ -194,8 +227,11 @@ export function MapExplorer({
     document.body.style.overflow = "hidden";
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        if (selection) setSelection(null);
-        else setExpanded(false);
+        if (selection) {
+          setSelection(null);
+          setFocusCode(null);
+          setFocusPoint(null);
+        } else setExpanded(false);
       }
     };
     window.addEventListener("keydown", onKey);
@@ -221,6 +257,23 @@ export function MapExplorer({
   );
 
   const highlightedCount = countColoredCountries(colored);
+
+  const mapSnapshot = useMemo(
+    () => ({
+      anyoneCount: visitMap.anyoneCount,
+      highlightedCount,
+      pinCount: pins.length,
+      tripCount: trips.length,
+      wishlistCount: wishlistCodes.length,
+    }),
+    [
+      visitMap.anyoneCount,
+      highlightedCount,
+      pins.length,
+      trips.length,
+      wishlistCodes.length,
+    ],
+  );
 
   const searchResults = useMemo<SearchHit[]>(() => {
     const q = query.trim().toLowerCase();
@@ -253,35 +306,62 @@ export function MapExplorer({
     setFocusPoint(null);
     setFocusCode(code);
     setSelection({ kind: "country", code });
+    dismissCitiesHint();
   }
 
   function flyToPin(pin: MapPin) {
-    setFocusCode(null);
+    setFocusCode(pin.countryCode);
     setFocusPoint({
       latitude: pin.latitude,
       longitude: pin.longitude,
       key: `${pin.id}-${crypto.randomUUID()}`,
     });
     setSelection({ kind: "trip", tripId: pin.tripId, placeId: pin.id });
+    dismissCitiesHint();
+  }
+
+  function clearMapSelection() {
+    setSelection(null);
+    setFocusCode(null);
+    setFocusPoint(null);
   }
 
   function openCountry(code: string) {
+    if (selection?.kind === "country" && selection.code === code) {
+      clearMapSelection();
+      return;
+    }
+    setFocusPoint(null);
+    setFocusCode(code);
     setSelection({ kind: "country", code });
+    dismissCitiesHint();
   }
 
   function openPin(pin: MapPin) {
+    setFocusCode(pin.countryCode);
     setSelection({ kind: "trip", tripId: pin.tripId, placeId: pin.id });
+    dismissCitiesHint();
+  }
+
+  function dismissCitiesHint() {
+    if (!showCitiesHint) return;
+    setShowCitiesHint(false);
+    try {
+      window.localStorage.setItem(MAP_CITIES_HINT_KEY, "1");
+    } catch {
+      /* ignore */
+    }
   }
 
   if (visitMap.anyoneCount === 0 && wishlistCodes.length === 0) {
     return (
       <div className="flex min-h-[60vh] items-center">
         <EmptyState
-          eyebrow="World map"
-          title="No visits yet"
-          description="Log a trip and the countries you visit will light up here."
+          eyebrow={t("map.title")}
+          title={t("map.emptyTitle")}
+          description={t("map.emptyDescription")}
           actionHref="/trips/new"
-          actionLabel="Add your first trip"
+          actionLabel={t("common.addFirstTrip")}
         />
       </div>
     );
@@ -293,8 +373,8 @@ export function MapExplorer({
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         className="field"
-        placeholder="Search country or city…"
-        aria-label="Search country or city on map"
+        placeholder={t("map.searchPlaceholder")}
+        aria-label={t("map.searchPlaceholder")}
       />
       {searchResults.length > 0 ? (
         <ul className="absolute z-30 mt-1 max-h-56 w-full overflow-auto rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow-md)]">
@@ -361,6 +441,7 @@ export function MapExplorer({
         design={design}
         onCountryClick={openCountry}
         onPinClick={openPin}
+        onBackgroundClick={clearMapSelection}
       />
     ) : (
       <GlobeCanvas
@@ -380,6 +461,7 @@ export function MapExplorer({
         onRequest2D={() => setMapKind("2d")}
         onCountryClick={openCountry}
         onPinClick={openPin}
+        onBackgroundClick={clearMapSelection}
       />
     )
   );
@@ -400,14 +482,14 @@ export function MapExplorer({
               className="h-2.5 w-2.5 rounded-full"
               style={{ background: palette.landPlains }}
             />{" "}
-            Plains
+            {t("map.plains")}
           </span>
           <span className="inline-flex items-center gap-2">
             <span
               className="h-2.5 w-2.5 rounded-full"
               style={{ background: palette.landMountains }}
             />{" "}
-            Highlands
+            {t("map.highlands")}
           </span>
         </>
       ) : (
@@ -416,7 +498,7 @@ export function MapExplorer({
             className="h-2.5 w-2.5 rounded-full border border-[var(--border)]"
             style={{ background: palette.classicUnvisited }}
           />{" "}
-          Unvisited
+          {t("map.unvisited")}
         </span>
       )}
       <span className="inline-flex items-center gap-2">
@@ -424,35 +506,35 @@ export function MapExplorer({
           className="h-2.5 w-2.5 rounded-full"
           style={{ background: isMinimal ? "#7eb8b5" : "#2F6F6A" }}
         />{" "}
-        Visited / multi
+        {t("map.visitedMulti")}
       </span>
       <span className="inline-flex items-center gap-2">
         <span
           className="h-2.5 w-2.5 rounded-full"
           style={{ background: isMinimal ? "#C5B8D4" : "#B8A9C9" }}
         />{" "}
-        Wishlist
+        {t("map.wishlist")}
       </span>
       <span className="inline-flex items-center gap-2">
         <span
           className="h-2.5 w-2.5 rounded-full"
           style={{ background: isMinimal ? "#d4a574" : "#C4875A" }}
         />{" "}
-        Couple shared
+        {t("map.coupleShared")}
       </span>
       <span className="inline-flex items-center gap-2">
         <span
           className="h-2.5 w-2.5 rounded-full"
           style={{ background: isMinimal ? "#8eb0bf" : "#4A7C8C" }}
         />{" "}
-        Whole family
+        {t("common.wholeFamily")}
       </span>
       <span className="inline-flex items-center gap-2">
         <span className="relative inline-flex h-2.5 w-2.5 items-center justify-center">
           <span className="absolute h-2.5 w-2.5 rounded-full bg-[var(--foreground)]/20" />
           <span className="h-1.5 w-1.5 rounded-full bg-[var(--accent)]" />
         </span>
-        Place (hover country)
+        {t("map.placeHover")}
       </span>
       {visitMap.members.map((m) => (
         <span key={m.id} className="inline-flex items-center gap-2">
@@ -473,7 +555,7 @@ export function MapExplorer({
       pins={pins}
       countries={countries}
       wishlistCodes={wishlistCodes}
-      onClose={() => setSelection(null)}
+      onClose={clearMapSelection}
       onSelectTrip={(tripId) => setSelection({ kind: "trip", tripId })}
       onFocusPlace={(pin) => flyToPin(pin)}
     />
@@ -481,10 +563,11 @@ export function MapExplorer({
 
   return (
     <div className="flex h-full min-h-[78vh] flex-col gap-3">
+      <OfflineSnapshotSaver snapshotKey="map" payload={mapSnapshot} />
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <p className="text-sm uppercase tracking-[0.18em] text-[var(--muted-foreground)]">
-            {isMinimal ? "Map" : "Atlas"}
+            {t("map.eyebrow")}
           </p>
           <h1
             className={`mt-1 font-semibold tracking-tight ${
@@ -493,23 +576,26 @@ export function MapExplorer({
                 : "font-[family-name:var(--font-display)] text-3xl"
             }`}
           >
-            World map
+            {t("map.title")}
           </h1>
           <p className="mt-1 text-sm text-[var(--muted-foreground)]">
-            {highlightedCount} highlighted · {visitMap.anyoneCount} countries ·{" "}
-            {pins.length} place{pins.length === 1 ? "" : "s"}
+            {highlightedCount} highlighted · {visitMap.anyoneCount}{" "}
+            {t("dashboard.countries").toLowerCase()} ·{" "}
+            {t(pins.length === 1 ? "map.place" : "map.places", {
+              count: pins.length,
+            })}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 lg:justify-end">
           <div className="flex flex-wrap gap-1 rounded-[var(--radius-control)] bg-[var(--muted)] p-1">
             {(
               [
-                ["anyone", "Anyone"],
-                ["individual", "Individual"],
-                ["couple", "Couple"],
-                ["family", "Whole family"],
+                ["anyone", "common.anyone"],
+                ["individual", "common.individual"],
+                ["couple", "common.couple"],
+                ["family", "common.wholeFamily"],
               ] as const
-            ).map(([value, label]) => (
+            ).map(([value, labelKey]) => (
               <button
                 key={value}
                 type="button"
@@ -520,7 +606,7 @@ export function MapExplorer({
                     : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
                 }`}
               >
-                {label}
+                {t(labelKey)}
               </button>
             ))}
           </div>
@@ -538,8 +624,8 @@ export function MapExplorer({
             onChange={setMapStyle}
             compact
             options={[
-              { value: "satellite", label: "Satellite" },
-              { value: "classic", label: "Classic" },
+              { value: "satellite", label: t("map.satellite") },
+              { value: "classic", label: t("map.classic") },
             ]}
           />
           <div className="min-w-[11rem] flex-1 lg:max-w-xs">{searchBox}</div>
@@ -549,7 +635,7 @@ export function MapExplorer({
       {mode === "individual" ? (
         <label className="flex max-w-xs flex-col gap-1.5 text-sm">
           <span className="text-xs uppercase tracking-[0.12em] text-[var(--muted-foreground)]">
-            Member
+            {t("common.member")}
           </span>
           <select
             className="field"
@@ -569,7 +655,7 @@ export function MapExplorer({
         <div className="grid max-w-xl gap-3 sm:grid-cols-2">
           <label className="flex flex-col gap-1.5 text-sm">
             <span className="text-xs uppercase tracking-[0.12em] text-[var(--muted-foreground)]">
-              Member A
+              {t("common.memberA")}
             </span>
             <select
               className="field"
@@ -585,7 +671,7 @@ export function MapExplorer({
           </label>
           <label className="flex flex-col gap-1.5 text-sm">
             <span className="text-xs uppercase tracking-[0.12em] text-[var(--muted-foreground)]">
-              Member B
+              {t("common.memberB")}
             </span>
             <select
               className="field"
@@ -603,21 +689,38 @@ export function MapExplorer({
       ) : null}
 
       <p className="text-sm text-[var(--muted-foreground)]">
-        {modeLegendLabel(mode)} · {mapKind === "3d" ? "3D globe" : "2D map"} ·{" "}
-        {mapStyle === "satellite" ? "Satellite" : "Classic"}
+        {t(MODE_LEGEND_KEYS[mode])} ·{" "}
+        {mapKind === "3d" ? t("map.globe3d") : t("map.map2d")} ·{" "}
+        {mapStyle === "satellite" ? t("map.satellite") : t("map.classic")}
       </p>
 
       {!expanded ? (
         <div className="flex flex-col gap-3 md:flex-row md:items-stretch">
           <div className="relative h-[min(72vh,820px)] min-h-[52vh] w-full flex-1">
             <div className="absolute inset-0">{mapCanvas}</div>
+            {showCitiesHint ? (
+              <div className="absolute left-3 right-3 top-3 z-20 flex justify-center md:left-auto md:right-3 md:justify-end">
+                <button
+                  type="button"
+                  onClick={dismissCitiesHint}
+                  className="max-w-sm rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--card)]/95 px-3 py-2 text-left text-xs shadow-[var(--shadow-sm)] backdrop-blur-sm"
+                >
+                  <span className="block text-[var(--foreground)]">
+                    {t("map.citiesHint")}
+                  </span>
+                  <span className="mt-0.5 block text-[var(--muted-foreground)]">
+                    {t("map.citiesHintDismiss")}
+                  </span>
+                </button>
+              </div>
+            ) : null}
             <button
               type="button"
               onClick={() => setExpanded(true)}
               className="absolute bottom-3 left-3 z-20 rounded-[var(--radius-control)] bg-[var(--card)]/90 px-3 py-1.5 text-xs shadow-[var(--shadow-sm)] backdrop-blur-sm"
-              aria-label="Expand map"
+              aria-label={t("map.expandMap")}
             >
-              Expand
+              {t("map.expand")}
             </button>
           </div>
           {selection ? panel : null}
@@ -648,8 +751,8 @@ export function MapExplorer({
                 onChange={setMapStyle}
                 compact
                 options={[
-                  { value: "satellite", label: "Satellite" },
-                  { value: "classic", label: "Classic" },
+                  { value: "satellite", label: t("map.satellite") },
+                  { value: "classic", label: t("map.classic") },
                 ]}
               />
             </div>
@@ -657,12 +760,12 @@ export function MapExplorer({
             <div className="flex flex-wrap gap-1.5">
               {(
                 [
-                  ["anyone", "Anyone"],
-                  ["individual", "Individual"],
-                  ["couple", "Couple"],
-                  ["family", "Family"],
+                  ["anyone", "common.anyone"],
+                  ["individual", "common.individual"],
+                  ["couple", "common.couple"],
+                  ["family", "common.family"],
                 ] as const
-              ).map(([value, label]) => (
+              ).map(([value, labelKey]) => (
                 <button
                   key={value}
                   type="button"
@@ -673,7 +776,7 @@ export function MapExplorer({
                       : "border border-[var(--border)] text-[var(--muted-foreground)]"
                   }`}
                 >
-                  {label}
+                  {t(labelKey)}
                 </button>
               ))}
             </div>
@@ -683,7 +786,7 @@ export function MapExplorer({
                 className="field max-w-[9rem] py-1.5 text-xs"
                 value={memberId}
                 onChange={(e) => setMemberId(e.target.value)}
-                aria-label="Member"
+                aria-label={t("common.member")}
               >
                 {visitMap.members.map((m) => (
                   <option key={m.id} value={m.id}>
@@ -699,7 +802,7 @@ export function MapExplorer({
                   className="field max-w-[8rem] py-1.5 text-xs"
                   value={coupleA}
                   onChange={(e) => setCoupleA(e.target.value)}
-                  aria-label="Member A"
+                  aria-label={t("common.memberA")}
                 >
                   {visitMap.members.map((m) => (
                     <option key={m.id} value={m.id}>
@@ -711,7 +814,7 @@ export function MapExplorer({
                   className="field max-w-[8rem] py-1.5 text-xs"
                   value={coupleB}
                   onChange={(e) => setCoupleB(e.target.value)}
-                  aria-label="Member B"
+                  aria-label={t("common.memberB")}
                 >
                   {visitMap.members.map((m) => (
                     <option key={m.id} value={m.id}>
@@ -731,7 +834,7 @@ export function MapExplorer({
               onClick={() => setExpanded(false)}
               className="ml-auto shrink-0 rounded-full border border-[var(--border)] bg-[var(--background)] px-3 py-1.5 text-sm"
             >
-              Exit · Esc
+              {t("map.exit")}
             </button>
           </header>
 

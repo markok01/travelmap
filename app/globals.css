@@ -206,7 +206,10 @@ html[data-design="minimal"] .brand-eyebrow {
 }
 
 .field {
+  box-sizing: border-box;
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   border-radius: var(--field-radius);
   border: 1px solid var(--border);
   background: var(--background);
@@ -214,6 +217,25 @@ html[data-design="minimal"] .brand-eyebrow {
   color: var(--foreground);
   outline: none;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+select.field {
+  /* Prevent long option text from forcing wider-than-parent width on mobile */
+  appearance: none;
+  -webkit-appearance: none;
+  background-color: var(--background);
+  background-image: linear-gradient(45deg, transparent 50%, var(--muted-foreground) 50%),
+    linear-gradient(135deg, var(--muted-foreground) 50%, transparent 50%);
+  background-position:
+    calc(100% - 1.1rem) calc(50% - 0.15rem),
+    calc(100% - 0.75rem) calc(50% - 0.15rem);
+  background-size: 0.35rem 0.35rem, 0.35rem 0.35rem;
+  background-repeat: no-repeat;
+  padding-right: 2rem;
+}
+
+html[data-design="minimal"] select.field {
+  background-color: var(--muted);
 }
 
 html[data-design="minimal"] .field {
@@ -689,21 +711,42 @@ html[data-design="minimal"] .mobile-menu-panel {
     opacity: 1;
     transform: none;
   }
+
+  .map-city-pin-pulse {
+    animation: none;
+    opacity: 0;
+  }
 }
 
 /* ── Map city pins (hover-reveal) ───────────────────────────────── */
 .map-city-pin {
   opacity: 0;
-  transform: scale(0.35);
+  transform: scale(0.2);
   transform-box: fill-box;
   transform-origin: center;
-  animation: map-pin-in 0.42s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: map-pin-in 0.55s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   animation-delay: var(--pin-delay, 0ms);
   will-change: opacity, transform;
 }
 
+.map-city-pin-pulse {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: map-pin-pulse 1.35s cubic-bezier(0.22, 1, 0.36, 1) 1;
+  animation-delay: calc(var(--pin-delay, 0ms) + 120ms);
+  opacity: 0;
+}
+
+.map-city-pin-halo {
+  filter: drop-shadow(0 0 1.5px rgba(0, 0, 0, 0.18));
+}
+
+.map-city-pin-ring {
+  filter: drop-shadow(0 0 1px color-mix(in oklab, var(--accent) 35%, transparent));
+}
+
 .map-city-pin-dot {
-  filter: drop-shadow(0 0.5px 1px rgba(0, 0, 0, 0.25));
+  filter: drop-shadow(0 0.4px 0.6px rgba(0, 0, 0, 0.2));
 }
 
 .map-country-visited {
@@ -716,14 +759,122 @@ html[data-design="minimal"] .mobile-menu-panel {
 @keyframes map-pin-in {
   0% {
     opacity: 0;
-    transform: scale(0.35) translateY(2px);
+    transform: scale(0.15) translateY(1.5px);
   }
-  70% {
+  62% {
     opacity: 1;
-    transform: scale(1.08) translateY(0);
+    transform: scale(1.12) translateY(0);
   }
   100% {
     opacity: 1;
     transform: scale(1) translateY(0);
   }
+}
+
+@keyframes map-pin-pulse {
+  0% {
+    opacity: 0.7;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(2.6);
+  }
+}
+
+/* ── Globe HTML city pins ───────────────────────────────────────── */
+.globe-city-pin {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  transform: translate(-50%, -50%);
+  opacity: 1;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.28));
+  z-index: 2;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+@media (pointer: coarse) {
+  .globe-city-pin {
+    width: 28px;
+    height: 28px;
+  }
+
+  .globe-city-pin-halo {
+    width: 14px;
+    height: 14px;
+  }
+
+  .globe-city-pin-ring {
+    width: 10px;
+    height: 10px;
+  }
+
+  .globe-city-pin-dot {
+    width: 4.5px;
+    height: 4.5px;
+  }
+}
+
+.map-panel--sheet {
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+}
+
+.map-tooltip {
+  word-break: break-word;
+}
+
+.globe-city-pin-pulse,
+.globe-city-pin-halo,
+.globe-city-pin-ring,
+.globe-city-pin-dot {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  border-radius: 999px;
+  translate: -50% -50%;
+  pointer-events: none;
+}
+
+.globe-city-pin-pulse {
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid var(--pin-pulse);
+  opacity: 0;
+  /* Appear pulse disabled — was part of the hover-in motion */
+}
+
+.globe-city-pin-halo {
+  width: 12px;
+  height: 12px;
+  background: var(--pin-halo);
+}
+
+.globe-city-pin-ring {
+  width: 9px;
+  height: 9px;
+  background: var(--pin-accent);
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--pin-accent) 40%, transparent);
+}
+
+.globe-city-pin-dot {
+  width: 4px;
+  height: 4px;
+  background: var(--pin-core);
+}
+
+.globe-city-pin:hover .globe-city-pin-halo {
+  width: 13px;
+  height: 13px;
+}
+
+.globe-city-pin:hover .globe-city-pin-ring {
+  width: 10px;
+  height: 10px;
 }

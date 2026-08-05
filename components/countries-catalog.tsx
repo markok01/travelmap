@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { useT } from "@/components/language-provider";
 import { CONTINENTS, type Country } from "@/lib/db/schema";
 import { groupCountriesByContinent } from "@/lib/countries/utils";
 
 export function CountriesCatalog({ countries }: { countries: Country[] }) {
+  const t = useT();
   const [q, setQ] = useState("");
   const [continent, setContinent] = useState<string>("all");
 
@@ -33,16 +35,16 @@ export function CountriesCatalog({ countries }: { countries: Country[] }) {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           className="field sm:flex-1"
-          placeholder="Search by name or code…"
-          aria-label="Search countries"
+          placeholder={t("countries.search")}
+          aria-label={t("countries.searchAria")}
         />
         <select
           value={continent}
           onChange={(e) => setContinent(e.target.value)}
           className="field sm:w-56"
-          aria-label="Filter by continent"
+          aria-label={t("countries.filterContinent")}
         >
-          <option value="all">All continents</option>
+          <option value="all">{t("countries.allContinents")}</option>
           {CONTINENTS.map((c) => (
             <option key={c} value={c}>
               {c}
@@ -52,12 +54,15 @@ export function CountriesCatalog({ countries }: { countries: Country[] }) {
       </div>
 
       <p className="text-sm text-[var(--muted-foreground)]">
-        Showing {filtered.length} of {countries.length} countries
+        {t("countries.showingCount", {
+          filtered: filtered.length,
+          total: countries.length,
+        })}
       </p>
 
       {groups.length === 0 ? (
         <p className="rounded-3xl border border-dashed border-[var(--border)] p-8 text-center text-[var(--muted-foreground)]">
-          No countries match your filters.
+          {t("countries.noMatch")}
         </p>
       ) : (
         <div className="space-y-8">

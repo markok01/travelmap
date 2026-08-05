@@ -5,6 +5,7 @@ import {
   type Appearance,
   type DesignTheme,
 } from "@/components/theme-provider";
+import { useT } from "@/components/language-provider";
 
 function InsetGroup<T extends string>({
   value,
@@ -38,10 +39,7 @@ function InsetGroup<T extends string>({
               ) : null}
             </span>
             {active ? (
-              <span
-                className="mt-0.5 text-[var(--accent)]"
-                aria-hidden
-              >
+              <span className="mt-0.5 text-[var(--accent)]" aria-hidden>
                 ✓
               </span>
             ) : null}
@@ -54,21 +52,22 @@ function InsetGroup<T extends string>({
 
 export function AppearanceSettings() {
   const { design, appearance, setDesign, setAppearance } = useTheme();
+  const t = useT();
 
   return (
     <section className="space-y-6">
       <div>
         <h2 className="settings-section-label text-sm font-medium uppercase tracking-[0.14em] text-[var(--muted-foreground)]">
-          Look & Feel
+          {t("settings.lookFeel")}
         </h2>
         <p className="mt-1 text-sm text-[var(--muted-foreground)]">
-          Design language and light or dark appearance.
+          {t("settings.lookFeelHint")}
         </p>
       </div>
 
       <div className="space-y-2">
         <h3 className="settings-section-label px-1 text-[13px] font-normal uppercase tracking-[0.08em] text-[var(--muted-foreground)]">
-          Design
+          {t("settings.design")}
         </h3>
         <InsetGroup<DesignTheme>
           value={design}
@@ -76,13 +75,13 @@ export function AppearanceSettings() {
           options={[
             {
               value: "atlas",
-              label: "Atlas",
-              hint: "Warm editorial travel look",
+              label: t("settings.atlas"),
+              hint: t("settings.atlasHint"),
             },
             {
               value: "minimal",
-              label: "Minimal",
-              hint: "iOS / macOS system style",
+              label: t("settings.minimal"),
+              hint: t("settings.minimalHint"),
             },
           ]}
         />
@@ -90,14 +89,14 @@ export function AppearanceSettings() {
 
       <div className="space-y-2">
         <h3 className="settings-section-label px-1 text-[13px] font-normal uppercase tracking-[0.08em] text-[var(--muted-foreground)]">
-          Appearance
+          {t("settings.appearance")}
         </h3>
         <InsetGroup<Appearance>
           value={appearance}
           onChange={setAppearance}
           options={[
-            { value: "light", label: "Light" },
-            { value: "dark", label: "Dark" },
+            { value: "light", label: t("settings.light") },
+            { value: "dark", label: t("settings.dark") },
           ]}
         />
       </div>
